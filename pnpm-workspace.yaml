@@ -1,0 +1,4 @@
+# Marks purge/ as its own pnpm workspace root so it keeps an independent
+# lockfile and never touches the parent app's pnpm-lock.yaml.
+onlyBuiltDependencies:
+  - esbuild
