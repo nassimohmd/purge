@@ -6,7 +6,9 @@ import { dkey } from '../lib/types'
 import { buildTriageList, hasDescendantDecisions, kindLabel, type SortCol } from '../lib/board'
 import { effectiveState } from '../lib/resolve'
 import { humanBytes, relAge } from '../lib/format'
+import { ageT } from '../lib/stats'
 import FilterBar from './FilterBar'
+import SunburstPanel from './SunburstPanel'
 
 type FlatRow =
   | { type: 'folder'; node: NodeRec; level: number }
@@ -38,6 +40,7 @@ export default function TriageBoard() {
   const focusKey = useStore((s) => s.focusKey)
   const selected = useStore((s) => s.selected)
   const expanded = useStore((s) => s.expanded)
+  const boardPanel = useStore((s) => s.boardPanel)
 
   const ssdNames = useMemo(() => new Map(ssds.map((s) => [s.id, s.name])), [ssds])
 
@@ -88,6 +91,13 @@ export default function TriageBoard() {
     return m
   }, [flatRows])
 
+  // Inline size bars are scaled to the largest visible folder, log scale —
+  // sizes span KB→TB, linear would blank out everything but the top rows.
+  const maxSize = useMemo(
+    () => triage.reduce((m, n) => Math.max(m, n.sizeBytes), 0),
+    [triage],
+  )
+
   const parentRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
     count: flatRows.length,
@@ -95,6 +105,13 @@ export default function TriageBoard() {
     estimateSize: () => 34,
     overscan: 12,
   })
+
+  // Keep the focused row visible when focus is set externally (fleet / sunburst jumps).
+  useEffect(() => {
+    if (focusKey === null) return
+    const idx = idxById.get(focusKey)
+    if (idx !== undefined) virtualizer.scrollToIndex(idx, { align: 'auto' })
+  }, [focusKey, idxById, virtualizer])
 
   // Keyboard triage — the whole point of the tool.
   useEffect(() => {
@@ -104,7 +121,7 @@ export default function TriageBoard() {
         return
       }
       const s = useStore.getState()
-      if (s.helpOpen || s.noteFor || s.focusMode || s.screen !== 'board') return
+      if (s.helpOpen || s.noteFor || s.focusMode || s.drillSsdId || s.screen !== 'board') return
 
       const focusIdx = s.focusKey !== null ? (idxById.get(s.focusKey) ?? -1) : -1
       const focusedRow = focusIdx >= 0 ? flatRows[focusIdx] : null
@@ -189,6 +206,17 @@ export default function TriageBoard() {
         case 'm':
           s.setScreen('manifest')
           break
+        case 'v':
+          s.toggleBoardPanel()
+          break
+        case 'o': {
+          const ssdId =
+            s.filters.ssdIds.length === 1
+              ? s.filters.ssdIds[0]
+              : (focusedRow?.node.ssdId ?? s.ssds[0]?.id)
+          if (ssdId) s.setDrillSsd(ssdId)
+          break
+        }
         case ' ':
           e.preventDefault()
           if (focusedRow?.type === 'folder') s.setFocusKey(rowId(focusedRow))
@@ -217,38 +245,44 @@ export default function TriageBoard() {
   return (
     <div className="board">
       <FilterBar />
-      <div className="thead">
-        {COLS.map(({ col, label, cls }, i) => (
-          <span
-            key={i}
-            className={`th ${cls ?? ''} ${col && sort.col === col ? 'active' : ''}`}
-            style={cls === 'num' ? { textAlign: 'right' } : undefined}
-            onClick={col ? () => store.setSort(col) : undefined}
-          >
-            {label}
-            {col && sort.col === col ? (sort.dir === -1 ? ' ↓' : ' ↑') : ''}
-          </span>
-        ))}
-      </div>
-      <div className="tbody" ref={parentRef} tabIndex={0}>
-        <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
-          {virtualizer.getVirtualItems().map((vi) => {
-            const row = flatRows[vi.index]
-            return (
-              <Row
-                key={rowId(row)}
-                row={row}
-                top={vi.start}
-                ssdName={ssdNames.get(row.node.ssdId) ?? ''}
-                focused={focusKey === rowId(row)}
-                isSelected={selected.has(rowId(row))}
-              />
-            )
-          })}
+      <div className="board-main">
+        <div className="board-table">
+          <div className="thead">
+            {COLS.map(({ col, label, cls }, i) => (
+              <span
+                key={i}
+                className={`th ${cls ?? ''} ${col && sort.col === col ? 'active' : ''}`}
+                style={cls === 'num' ? { textAlign: 'right' } : undefined}
+                onClick={col ? () => store.setSort(col) : undefined}
+              >
+                {label}
+                {col && sort.col === col ? (sort.dir === -1 ? ' ↓' : ' ↑') : ''}
+              </span>
+            ))}
+          </div>
+          <div className="tbody" ref={parentRef} tabIndex={0}>
+            <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+              {virtualizer.getVirtualItems().map((vi) => {
+                const row = flatRows[vi.index]
+                return (
+                  <Row
+                    key={rowId(row)}
+                    row={row}
+                    top={vi.start}
+                    ssdName={ssdNames.get(row.node.ssdId) ?? ''}
+                    focused={focusKey === rowId(row)}
+                    isSelected={selected.has(rowId(row))}
+                    maxSize={maxSize}
+                  />
+                )
+              })}
+            </div>
+            {flatRows.length === 0 && (
+              <div className="empty">No folders match the current filters.</div>
+            )}
+          </div>
         </div>
-        {flatRows.length === 0 && (
-          <div className="empty">No folders match the current filters.</div>
-        )}
+        {boardPanel === 'sunburst' && <SunburstPanel />}
       </div>
     </div>
   )
@@ -260,12 +294,14 @@ function Row({
   ssdName,
   focused,
   isSelected,
+  maxSize,
 }: {
   row: FlatRow
   top: number
   ssdName: string
   focused: boolean
   isSelected: boolean
+  maxSize: number
 }) {
   const decisions = useStore((s) => s.decisions)
   const s = useStore.getState()
@@ -320,12 +356,23 @@ function Row({
   const partial = state === 'delete' && hasDescendantDecisions(decisions, node.ssdId, node.path)
   const kind = kindLabel(node)
 
+  // Age heat: older rows get a warm tint as a deletion cue — except rows
+  // already marked delete, where the red treatment owns the row.
+  const aget = state === 'delete' ? 0 : ageT(node.modified)
+  const sizeW =
+    maxSize > 0 ? (100 * Math.log10(node.sizeBytes + 1)) / Math.log10(maxSize + 1) : 0
+
   return (
     <div
       className={`row ${level > 0 ? 'child' : ''} ${focused ? 'focused' : ''} ${
         isSelected ? 'selected' : ''
       } ${state === 'delete' ? 'deleted' : ''}`}
-      style={{ transform: `translateY(${top}px)` }}
+      style={
+        {
+          transform: `translateY(${top}px)`,
+          '--aget': aget.toFixed(2),
+        } as React.CSSProperties
+      }
       onClick={(e) => {
         if (e.shiftKey || e.metaKey || e.ctrlKey) s.toggleSelect(rowId(row))
         else {
@@ -340,7 +387,14 @@ function Row({
         {partial && <span className="partial">±</span>}
       </span>
       <span className="meta">{ssdName}</span>
-      <span className="num size">{humanBytes(node.sizeBytes)}</span>
+      <span
+        className="num size"
+        style={{
+          backgroundImage: `linear-gradient(to left, rgba(154, 160, 168, 0.13) ${sizeW}%, transparent ${sizeW}%)`,
+        }}
+      >
+        {humanBytes(node.sizeBytes)}
+      </span>
       <span className="num">{relAge(node.modified)}</span>
       <span className="num">{node.fileCount.toLocaleString()}</span>
       <span className="meta">{kind.label}</span>

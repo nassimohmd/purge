@@ -9,8 +9,20 @@
   --tx-1: #9aa0a8; /* secondary: metadata, labels */
   --tx-2: #5c6168; /* tertiary: hints, disabled */
   --accent: #e8eaed; /* monochrome accent: focus ring, active filter */
-  --del: #e0574f; /* the ONLY color: delete state */
+  --del: #e0574f; /* delete state — the only color allowed to mean "delete" */
   --del-dim: #57302e; /* delete row tint / bar fill */
+  /* Kind palette (charts only) — desaturated, CVD-validated against --bg-0.
+     Red stays reserved for delete; these never encode state. */
+  --k-video: #5a8fc7;
+  --k-video-dim: #2b3f55;
+  --k-image: #63a35e;
+  --k-image-dim: #2f4630;
+  --k-project: #b8863c;
+  --k-project-dim: #4a3a20;
+  --k-other: #565b63;
+  --k-other-dim: #33373c;
+  /* Age heat — warm-grey rgb triplet, used as rgba(var(--age-warm), a) */
+  --age-warm: 138, 127, 114;
   --mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', 'IBM Plex Mono', Consolas, monospace;
 }
 
@@ -241,6 +253,138 @@ input[type='range'] {
   display: flex;
   flex-direction: column;
 }
+.board-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.board-table {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sunburst side panel + chart */
+.sunburst-panel {
+  flex: none;
+  width: 312px;
+  border-left: 1px solid var(--line);
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+.sunburst-panel .panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.sunburst-panel .panel-name {
+  font-weight: 600;
+}
+.sunburst-panel .panel-figures {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--tx-1);
+}
+.sunburst-panel .panel-figures .marked {
+  color: var(--del);
+}
+.sunburst-panel .panel-hint {
+  font-size: 11px;
+  color: var(--tx-2);
+}
+.sunburst {
+  position: relative;
+  align-self: center;
+}
+.sunburst-tip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  padding: 6px 8px;
+  font-size: 11px;
+  max-width: 220px;
+  z-index: 10;
+}
+.sunburst-tip .tip-name {
+  color: var(--tx-0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sunburst-tip .tip-meta {
+  color: var(--tx-1);
+}
+
+/* Full-screen sunburst drill-in */
+.drill .drill-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  padding: 32px;
+}
+.drill .drill-side {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.drill .ssd-label {
+  font-size: 16px;
+  font-weight: 600;
+}
+.drill .drill-figures {
+  font-size: 12px;
+  color: var(--tx-1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.drill .drill-figures .marked {
+  color: var(--del);
+}
+.drill .drill-crumbs {
+  font-size: 12px;
+  color: var(--tx-2);
+  word-break: break-all;
+}
+.drill .drill-crumbs .ghost {
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  text-decoration: underline dotted var(--tx-2);
+  text-underline-offset: 3px;
+}
+.drill .drill-legend {
+  font-size: 11px;
+  color: var(--tx-1);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.drill .drill-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 1px solid transparent;
+  margin: 0 4px 0 10px;
+  vertical-align: -1px;
+}
+.drill .drill-legend i:first-child {
+  margin-left: 0;
+}
+.drill .drill-keys {
+  font-size: 11px;
+  color: var(--tx-2);
+}
 .thead,
 .row {
   display: grid;
@@ -283,6 +427,14 @@ input[type='range'] {
   left: 0;
   right: 0;
   top: 0;
+}
+/* Age heat: rows set --aget (0 fresh → 1 stale) inline; delete rows force 0.
+   A background-image layer, so hover/focus background-colors still show through. */
+.row {
+  background-image: linear-gradient(
+    rgba(var(--age-warm), calc(var(--aget, 0) * 0.09)),
+    rgba(var(--age-warm), calc(var(--aget, 0) * 0.09))
+  );
 }
 .row:hover {
   background: var(--bg-1);
@@ -661,17 +813,41 @@ input[type='range'] {
 .manifest .group-head .spacer {
   flex: 1;
 }
-.manifest .capbar {
-  height: 4px;
-  background: var(--bg-2);
-  margin: 8px 0 12px;
-  position: relative;
+/* Capacity bar — kept · reclaim (red) · free. Free space is the empty track. */
+.capacity-bar {
+  display: flex;
+  background: var(--bg-0);
+  border: 1px solid var(--line);
+  overflow: hidden;
 }
-.manifest .capbar .fill {
-  position: absolute;
-  inset: 0 auto 0 0;
+.capacity-bar.unknown {
+  border-style: dashed;
+}
+.capacity-bar .seg.kept {
+  background: var(--bg-2);
+  border-right: 1px solid var(--line);
+}
+.capacity-bar .seg.reclaim {
   background: var(--del-dim);
   border-right: 1px solid var(--del);
+}
+.manifest .capacity-bar {
+  margin: 8px 0 12px;
+}
+.capacity-input {
+  width: 90px;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+.capacity-value {
+  border: none;
+  padding: 0;
+  text-decoration: underline dotted var(--tx-2);
+  text-underline-offset: 3px;
+}
+.capacity-value .edited {
+  color: var(--tx-2);
+  font-size: 11px;
 }
 .manifest .entries {
   max-height: 280px;
@@ -738,4 +914,82 @@ input[type='range'] {
   gap: 8px;
   text-align: center;
   padding: 32px;
+}
+
+/* Fleet overview — one card per SSD. */
+.fleet {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 16px;
+}
+.fleet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+.fleet-card {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+}
+.fleet-card.focused {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+  background: var(--bg-2);
+}
+.fleet-card .card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.fleet-card .card-name {
+  font-weight: 600;
+}
+.fleet-card .card-burst {
+  border: none;
+  padding: 0 2px;
+  color: var(--tx-2);
+  font-size: 14px;
+}
+.fleet-card .card-burst:hover {
+  color: var(--tx-0);
+}
+.fleet-card .card-figures {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--tx-1);
+}
+.fleet-card .card-figures .marked {
+  color: var(--del);
+}
+.fleet-card .card-figures .dim {
+  color: var(--tx-2);
+}
+.fleet-card .card-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--tx-2);
+}
+.fleet-card .card-progress {
+  height: 2px;
+  background: var(--bg-2);
+}
+.fleet-card .card-progress .fill {
+  height: 100%;
+  background: var(--tx-2);
+}
+.fleet-hint {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--tx-2);
+  text-align: center;
 }

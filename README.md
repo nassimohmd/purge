@@ -13,14 +13,25 @@ drive is mounted.
    endings, header-name column mapping, disk-serial identity, cumulative folder sizes
    with a >2% sanity check, tolerant date parsing. Each import shows a report
    (rows/folders/files/size/date range/warnings) so you can trust the parse.
-2. **Triage board** — one flat virtualized table of project folders across all SSDs,
+2. **Fleet overview** (landing screen) — every SSD as a card: capacity bar showing
+   used / marked-for-delete (red) / free space, triage progress, oldest data.
+   Capacity and free space are parsed from the export's disk metadata when present;
+   otherwise type it once (e.g. "2 TB") on the import screen or card. `j/k/h/l`
+   moves, `Enter` triages that drive, `o` opens its sunburst.
+3. **Triage board** — one flat virtualized table of project folders across all SSDs,
    sorted size-desc by default. Filter by SSD, age, min size, kind, decision state,
    fuzzy name search. Mark folders `delete`/`keep`/`review` by keyboard (press `?` for
-   the map), expand rows for subfolders and largest files as evidence. Every decision
-   auto-saves to IndexedDB instantly.
-3. **Focus mode** (`space`) — one folder at a time, single keypress decides and
+   the map), expand rows for subfolders and largest files as evidence. Inline
+   log-scale size bars and age-heat shading make big, stale folders pop. `v` opens a
+   live sunburst side panel that tints red as you mark; clicking a segment jumps the
+   board to that folder. Every decision auto-saves to IndexedDB instantly.
+4. **Sunburst drill-in** (`o`) — full-screen zoomable sunburst of one drive's folder
+   tree, colored by content kind (video/image/project/other), brighter with age, red
+   where marked delete. Click zooms in, `Enter` opens the board at the zoom root,
+   `[` `]` walk the fleet.
+5. **Focus mode** (`space`) — one folder at a time, single keypress decides and
    advances through the undecided queue.
-4. **Manifest** — decisions resolve nearest-ancestor-wins: a `keep` child inside a
+6. **Manifest** — decisions resolve nearest-ancestor-wins: a `keep` child inside a
    `delete` parent means the parent is never emitted wholesale; the maximal deletable
    subtrees (and the parent's loose files) are exported instead. Per-SSD CSV, an
    optional `DRY_RUN=1`-default shell script behind an "I understand" toggle, and a

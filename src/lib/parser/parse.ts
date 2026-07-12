@@ -6,6 +6,7 @@ import type {
   SsdMeta,
 } from '../types'
 import { lastSegment, parentPathOf } from '../types'
+import { parseHumanSize } from '../format'
 
 // ---------------------------------------------------------------------------
 // Decoding & line endings
@@ -182,6 +183,8 @@ export function parseNeoFinderExport(
 
   let metaName: string | null = null
   let diskSerial: string | null = null
+  let capacityBytes: number | null = null
+  let freeBytes: number | null = null
 
   const nodes = new Map<string, NodeRec>()
   const synthetic = new Set<string>()
@@ -200,6 +203,10 @@ export function parseNeoFinderExport(
       let m: RegExpMatchArray | null
       if ((m = t.match(/^Disk Serial\s*:?\s*(.+)$/i))) {
         diskSerial = m[1].trim()
+      } else if ((m = t.match(/^(?:Free\s+Space|Free|Available|Space\s+Free)\s*:?\s+(.+)$/i))) {
+        if (freeBytes == null) freeBytes = parseHumanSize(m[1])
+      } else if ((m = t.match(/^(?:Total\s+Size|Volume\s+Size|Size|Capacity)\s*:?\s+(.+)$/i))) {
+        if (capacityBytes == null) capacityBytes = parseHumanSize(m[1])
       } else if ((m = t.match(/^Name\s*:?\s*(.+)$/)) && !/^Serial/i.test(t)) {
         if (metaName == null) metaName = m[1].trim()
       }
@@ -376,6 +383,9 @@ export function parseNeoFinderExport(
     fileCount,
     folderCount,
     sourceFileName,
+    capacityBytes,
+    freeBytes,
+    userCapacityBytes: null,
   }
   const report: ImportReport = {
     ssdName,
@@ -386,6 +396,8 @@ export function parseNeoFinderExport(
     totalBytes,
     dateMin,
     dateMax,
+    capacityBytes,
+    freeBytes,
     warnings,
     sourceFileName,
   }

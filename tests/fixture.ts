@@ -1,4 +1,4 @@
-import type { NodeRec } from '../src/lib/types'
+import type { NodeRec, SsdMeta } from '../src/lib/types'
 
 /**
  * NeoFinder tabbed-text fixture builder. Column order intentionally differs
@@ -65,10 +65,10 @@ export function fileRow(
 }
 
 /** Assemble an export with classic-Mac CR line endings and trailing blanks. */
-export function assemble(lines: string[], metadata = true): string {
+export function assemble(lines: string[], metadata = true, extraMeta: string[] = []): string {
   const all = [HEADER.join('\t')]
   if (metadata) {
-    all.push('Name SSD 1', 'Serial Number 8', 'Disk Serial: 3231144123')
+    all.push('Name SSD 1', 'Serial Number 8', 'Disk Serial: 3231144123', ...extraMeta)
   }
   for (const line of lines) all.push(line)
   all.push('', '   ')
@@ -119,6 +119,23 @@ export function sampleSsd1(): string {
 }
 
 // --- helpers for resolve/manifest tests (in-memory NodeRecs) ---
+
+export function mkSsd(id: string, patch: Partial<SsdMeta> = {}): SsdMeta {
+  return {
+    id,
+    name: 'SSD 1',
+    diskSerial: '3231',
+    importedAt: 0,
+    totalBytes: 1000,
+    fileCount: 1,
+    folderCount: 1,
+    sourceFileName: 'x.txt',
+    capacityBytes: null,
+    freeBytes: null,
+    userCapacityBytes: null,
+    ...patch,
+  }
+}
 
 export function mkNode(
   ssdId: string,

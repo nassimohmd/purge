@@ -14,8 +14,30 @@ class PurgeDB extends Dexie {
       nodes: '[ssdId+path], ssdId, [ssdId+parentPath], [ssdId+folder]',
       decisions: 'key, ssdId',
     })
+    // v2: capacity fields on ssds (not indexed — same stores spec).
+    this.version(2)
+      .stores({
+        ssds: 'id',
+        nodes: '[ssdId+path], ssdId, [ssdId+parentPath], [ssdId+folder]',
+        decisions: 'key, ssdId',
+      })
+      .upgrade((tx) =>
+        tx.table('ssds').toCollection().modify((s: SsdMeta) => {
+          s.capacityBytes ??= null
+          s.freeBytes ??= null
+          s.userCapacityBytes ??= null
+        }),
+      )
   }
 }
+
+/** Fill capacity fields missing from pre-v2 rows / session files. */
+const normalizeSsd = (s: SsdMeta): SsdMeta => ({
+  ...s,
+  capacityBytes: s.capacityBytes ?? null,
+  freeBytes: s.freeBytes ?? null,
+  userCapacityBytes: s.userCapacityBytes ?? null,
+})
 
 export const db = new PurgeDB()
 
@@ -52,7 +74,15 @@ export async function saveImport(
       await database.decisions.bulkDelete(orphanKeys)
       await database.nodes.where('ssdId').equals(ssd.id).delete()
       await bulkPutChunked(database.nodes, nodes)
-      await database.ssds.put(ssd)
+      // Re-import must not lose the manual capacity override, nor wipe a
+      // previously parsed capacity when the new export omits it.
+      const prior = await database.ssds.get(ssd.id)
+      await database.ssds.put({
+        ...ssd,
+        capacityBytes: ssd.capacityBytes ?? prior?.capacityBytes ?? null,
+        freeBytes: ssd.freeBytes ?? prior?.freeBytes ?? null,
+        userCapacityBytes: prior?.userCapacityBytes ?? null,
+      })
       return { rematched: existing.length - orphanKeys.length, orphaned: orphanKeys.length }
     },
   )
@@ -78,7 +108,7 @@ export interface LoadedState {
 
 /** Startup hydration: all SSDs + decisions + FOLDER nodes only (files load on demand). */
 export async function loadAll(database: PurgeDB = db): Promise<LoadedState> {
-  const ssds = await database.ssds.toArray()
+  const ssds = (await database.ssds.toArray()).map(normalizeSsd)
   ssds.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
   const foldersBySsd: Record<string, NodeRec[]> = {}
   for (const ssd of ssds) {
@@ -90,6 +120,15 @@ export async function loadAll(database: PurgeDB = db): Promise<LoadedState> {
   const decisions: Record<string, Decision> = {}
   for (const d of await database.decisions.toArray()) decisions[d.key] = d
   return { ssds, foldersBySsd, decisions }
+}
+
+/** Set (or clear, with null) the manual capacity override for an SSD. */
+export async function setSsdCapacity(
+  ssdId: string,
+  bytes: number | null,
+  database: PurgeDB = db,
+): Promise<void> {
+  await database.ssds.update(ssdId, { userCapacityBytes: bytes })
 }
 
 export async function putDecision(d: Decision, database: PurgeDB = db): Promise<void> {
@@ -137,7 +176,7 @@ export async function getDescendantFiles(
 
 export interface SessionFile {
   app: 'purge'
-  version: 1
+  version: 1 | 2
   exportedAt: number
   ssds: SsdMeta[]
   nodes: NodeRec[]
@@ -149,7 +188,7 @@ export async function exportSession(database: PurgeDB = db): Promise<Blob> {
   const decisions = await database.decisions.toArray()
   // Stream nodes into blob parts to avoid one giant string for 30-drive fleets.
   const parts: string[] = [
-    `{"app":"purge","version":1,"exportedAt":${Date.now()},"ssds":${JSON.stringify(
+    `{"app":"purge","version":2,"exportedAt":${Date.now()},"ssds":${JSON.stringify(
       ssds,
     )},"decisions":${JSON.stringify(decisions)},"nodes":[`,
   ]
@@ -178,7 +217,7 @@ export async function importSession(json: string, database: PurgeDB = db): Promi
       await database.ssds.clear()
       await database.nodes.clear()
       await database.decisions.clear()
-      await database.ssds.bulkPut(data.ssds)
+      await database.ssds.bulkPut(data.ssds.map(normalizeSsd))
       await bulkPutChunked(database.nodes, data.nodes)
       await database.decisions.bulkPut(
         (data.decisions ?? []).map((d) => ({ ...d, key: dkey(d.ssdId, d.path) })),

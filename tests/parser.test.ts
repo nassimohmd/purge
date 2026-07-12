@@ -206,6 +206,44 @@ describe('tolerance & warnings', () => {
   })
 })
 
+describe('capacity metadata', () => {
+  const body = [folderRow('SSD 1:X', 10), fileRow('SSD 1:X:a.mov', 10)]
+
+  it('parses capacity and free space from the metadata block', () => {
+    const text = assemble(body, true, [
+      'Size 2 TB (2,000,398,934,016 Bytes)',
+      'Free Space: 483,35 GB',
+    ])
+    const parsed = parseNeoFinderExport(toBuffer(text), 'x.txt')
+    expect(parsed.ssd.capacityBytes).toBe(2000398934016)
+    expect(parsed.ssd.freeBytes).toBe(483350000000)
+    expect(parsed.report.capacityBytes).toBe(2000398934016)
+    expect(parsed.ssd.userCapacityBytes).toBeNull()
+  })
+
+  it('leaves capacity null when the export has no capacity lines', () => {
+    const parsed = parseNeoFinderExport(toBuffer(assemble(body)), 'x.txt')
+    expect(parsed.ssd.capacityBytes).toBeNull()
+    expect(parsed.ssd.freeBytes).toBeNull()
+  })
+
+  it('ignores unparseable capacity values without warnings', () => {
+    const text = assemble(body, true, ['Size enormous', 'Free Space: loads'])
+    const parsed = parseNeoFinderExport(toBuffer(text), 'x.txt')
+    expect(parsed.ssd.capacityBytes).toBeNull()
+    expect(parsed.ssd.freeBytes).toBeNull()
+    expect(parsed.report.warnings).toEqual([])
+  })
+
+  it('does not confuse capacity lines with name or serial', () => {
+    const text = assemble(body, true, ['Total Size 1 TB'])
+    const parsed = parseNeoFinderExport(toBuffer(text), 'x.txt')
+    expect(parsed.ssd.name).toBe('SSD 1')
+    expect(parsed.ssd.diskSerial).toBe('3231144123')
+    expect(parsed.ssd.capacityBytes).toBe(1e12)
+  })
+})
+
 describe('kind classification', () => {
   it('classifies by Kind string first, extension second', () => {
     expect(classifyKind('clip.weird', 'QuickTime movie')).toBe('video')

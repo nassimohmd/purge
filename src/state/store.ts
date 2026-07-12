@@ -10,7 +10,7 @@ import {
 } from '../lib/board'
 import * as dbi from '../lib/db'
 
-export type Screen = 'import' | 'board' | 'manifest'
+export type Screen = 'import' | 'fleet' | 'board' | 'manifest'
 
 interface UndoStep {
   key: string
@@ -32,6 +32,12 @@ interface PurgeState {
   screen: Screen
   focusMode: boolean
   helpOpen: boolean
+  /** Focused card index on the fleet screen. */
+  fleetFocusIdx: number
+  /** SSD shown in the full-screen sunburst drill-in; null = closed. */
+  drillSsdId: string | null
+  /** Board side panel. */
+  boardPanel: 'none' | 'sunburst'
   /** Node keys a note is being edited for; null = editor closed. */
   noteFor: { keys: string[]; initial: string } | null
 
@@ -55,11 +61,17 @@ interface PurgeState {
   applyImport: (result: ParseResult) => Promise<dbi.RematchReport>
   removeSsd: (ssdId: string) => Promise<void>
 
+  setSsdCapacity: (ssdId: string, bytes: number | null) => Promise<void>
   mark: (nodes: NodeRec[], state: DecisionState | null) => void
   setNote: (nodes: NodeRec[], note: string) => void
   undo: () => void
 
   setScreen: (s: Screen) => void
+  setFleetFocusIdx: (i: number) => void
+  setDrillSsd: (ssdId: string | null) => void
+  toggleBoardPanel: () => void
+  /** Jump to the board filtered to one SSD, optionally focused on a folder. */
+  openBoardForSsd: (ssdId: string, focusPath?: string) => void
   setFocusMode: (on: boolean) => void
   setHelpOpen: (on: boolean) => void
   openNoteEditor: (nodes: NodeRec[]) => void
@@ -84,6 +96,9 @@ export const useStore = create<PurgeState>((set, get) => ({
   screen: 'import',
   focusMode: false,
   helpOpen: false,
+  fleetFocusIdx: 0,
+  drillSsdId: null,
+  boardPanel: 'none',
   noteFor: null,
   ssds: [],
   foldersBySsd: {},
@@ -102,7 +117,7 @@ export const useStore = create<PurgeState>((set, get) => ({
     set({
       ...state,
       loaded: true,
-      screen: state.ssds.length > 0 ? 'board' : 'import',
+      screen: state.ssds.length > 0 ? 'fleet' : 'import',
     })
   },
 
@@ -122,6 +137,13 @@ export const useStore = create<PurgeState>((set, get) => ({
     await dbi.deleteSsd(ssdId)
     const fresh = await dbi.loadAll()
     set({ ssds: fresh.ssds, foldersBySsd: fresh.foldersBySsd, decisions: fresh.decisions })
+  },
+
+  setSsdCapacity: async (ssdId, bytes) => {
+    await dbi.setSsdCapacity(ssdId, bytes)
+    set((s) => ({
+      ssds: s.ssds.map((x) => (x.id === ssdId ? { ...x, userCapacityBytes: bytes } : x)),
+    }))
   },
 
   mark: (nodes, state) => {
@@ -216,6 +238,37 @@ export const useStore = create<PurgeState>((set, get) => ({
   },
 
   setScreen: (s) => set({ screen: s }),
+  setFleetFocusIdx: (i) => set({ fleetFocusIdx: i }),
+  setDrillSsd: (ssdId) => set({ drillSsdId: ssdId }),
+  toggleBoardPanel: () =>
+    set((s) => ({ boardPanel: s.boardPanel === 'sunburst' ? 'none' : 'sunburst' })),
+
+  openBoardForSsd: (ssdId, focusPath) => {
+    // Focus the target folder's row, expanding ancestors below depth 1 so a
+    // deep sunburst segment lands on a visible row. Unknown paths (synthetic
+    // "other" aggregates) fall back to their depth-1 ancestor.
+    let focusKey: string | null = null
+    if (focusPath) {
+      const segs = focusPath.split(':')
+      if (segs.length >= 2) {
+        const { foldersBySsd, expanded, toggleExpanded } = get()
+        const byPath = new Map((foldersBySsd[ssdId] ?? []).map((f) => [f.path, f]))
+        const target = byPath.has(focusPath) ? focusPath : segs.slice(0, 2).join(':')
+        focusKey = dkey(ssdId, target)
+        for (let d = 2; d < target.split(':').length; d++) {
+          const anc = byPath.get(segs.slice(0, d).join(':'))
+          if (anc && !expanded[dkey(ssdId, anc.path)]) toggleExpanded(anc)
+        }
+      }
+    }
+    set((s) => ({
+      screen: 'board',
+      drillSsdId: null,
+      filters: { ...s.filters, ssdIds: [ssdId] },
+      ...(focusKey !== null ? { focusKey } : {}),
+    }))
+  },
+
   setFocusMode: (on) => set({ focusMode: on }),
   setHelpOpen: (on) => set({ helpOpen: on }),
   openNoteEditor: (nodes) => {
