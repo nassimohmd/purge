@@ -1005,8 +1005,9 @@ input[type='range'] {
 }
 .fleet-card .card-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
 .fleet-card .card-name {
   font-weight: 600;
@@ -1016,12 +1017,16 @@ input[type='range'] {
   min-width: 0;
 }
 .fleet-card .card-burst {
-  border: none;
-  padding: 0 2px;
-  color: var(--tx-2);
+  border: 1px solid var(--line);
+  padding: 3px 8px;
+  color: var(--tx-0);
   font-size: 11px;
   white-space: nowrap;
   flex: none;
+}
+.fleet-card .card-burst:hover {
+  background: var(--bg-2);
+  border-color: var(--accent);
 }
 .fleet-card .card-burst:hover {
   color: var(--tx-0);
