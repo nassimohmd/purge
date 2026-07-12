@@ -96,6 +96,13 @@ export default function TriageBoard() {
     overscan: 12,
   })
 
+  // Keep the focused row visible when focus is set externally (fleet / sunburst jumps).
+  useEffect(() => {
+    if (focusKey === null) return
+    const idx = idxById.get(focusKey)
+    if (idx !== undefined) virtualizer.scrollToIndex(idx, { align: 'auto' })
+  }, [focusKey, idxById, virtualizer])
+
   // Keyboard triage — the whole point of the tool.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

@@ -10,7 +10,7 @@ import {
 } from '../lib/board'
 import * as dbi from '../lib/db'
 
-export type Screen = 'import' | 'board' | 'manifest'
+export type Screen = 'import' | 'fleet' | 'board' | 'manifest'
 
 interface UndoStep {
   key: string
@@ -32,6 +32,12 @@ interface PurgeState {
   screen: Screen
   focusMode: boolean
   helpOpen: boolean
+  /** Focused card index on the fleet screen. */
+  fleetFocusIdx: number
+  /** SSD shown in the full-screen sunburst drill-in; null = closed. */
+  drillSsdId: string | null
+  /** Board side panel. */
+  boardPanel: 'none' | 'sunburst'
   /** Node keys a note is being edited for; null = editor closed. */
   noteFor: { keys: string[]; initial: string } | null
 
@@ -61,6 +67,11 @@ interface PurgeState {
   undo: () => void
 
   setScreen: (s: Screen) => void
+  setFleetFocusIdx: (i: number) => void
+  setDrillSsd: (ssdId: string | null) => void
+  toggleBoardPanel: () => void
+  /** Jump to the board filtered to one SSD, optionally focused on a folder. */
+  openBoardForSsd: (ssdId: string, focusPath?: string) => void
   setFocusMode: (on: boolean) => void
   setHelpOpen: (on: boolean) => void
   openNoteEditor: (nodes: NodeRec[]) => void
@@ -85,6 +96,9 @@ export const useStore = create<PurgeState>((set, get) => ({
   screen: 'import',
   focusMode: false,
   helpOpen: false,
+  fleetFocusIdx: 0,
+  drillSsdId: null,
+  boardPanel: 'none',
   noteFor: null,
   ssds: [],
   foldersBySsd: {},
@@ -103,7 +117,7 @@ export const useStore = create<PurgeState>((set, get) => ({
     set({
       ...state,
       loaded: true,
-      screen: state.ssds.length > 0 ? 'board' : 'import',
+      screen: state.ssds.length > 0 ? 'fleet' : 'import',
     })
   },
 
@@ -224,6 +238,26 @@ export const useStore = create<PurgeState>((set, get) => ({
   },
 
   setScreen: (s) => set({ screen: s }),
+  setFleetFocusIdx: (i) => set({ fleetFocusIdx: i }),
+  setDrillSsd: (ssdId) => set({ drillSsdId: ssdId }),
+  toggleBoardPanel: () =>
+    set((s) => ({ boardPanel: s.boardPanel === 'sunburst' ? 'none' : 'sunburst' })),
+
+  openBoardForSsd: (ssdId, focusPath) => {
+    // Focus lands on the depth-1 ancestor: that's the row the board renders.
+    let focusKey: string | null = null
+    if (focusPath) {
+      const segs = focusPath.split(':')
+      if (segs.length >= 2) focusKey = dkey(ssdId, segs.slice(0, 2).join(':'))
+    }
+    set((s) => ({
+      screen: 'board',
+      drillSsdId: null,
+      filters: { ...s.filters, ssdIds: [ssdId] },
+      ...(focusKey !== null ? { focusKey } : {}),
+    }))
+  },
+
   setFocusMode: (on) => set({ focusMode: on }),
   setHelpOpen: (on) => set({ helpOpen: on }),
   openNoteEditor: (nodes) => {
