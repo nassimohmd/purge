@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store'
-import type { ImportReport, ParseResult } from '../lib/types'
+import type { ImportReport, ParseResult, SsdMeta } from '../lib/types'
+import { effectiveCapacity } from '../lib/types'
 import type { WorkerRequest, WorkerResponse } from '../lib/parser/worker'
 import { db, exportSession, importSession } from '../lib/db'
-import { fmtDate, humanBytes, todayStamp } from '../lib/format'
+import { fmtDate, humanBytes, parseHumanSize, todayStamp } from '../lib/format'
 
 interface QueueItem {
   id: number
@@ -163,6 +164,7 @@ export default function ImportScreen() {
                 <th>folders</th>
                 <th>files</th>
                 <th>total size</th>
+                <th>capacity</th>
                 <th>date range</th>
                 <th>status</th>
               </tr>
@@ -187,6 +189,7 @@ export default function ImportScreen() {
                 <th>folders</th>
                 <th>files</th>
                 <th>total</th>
+                <th>capacity</th>
                 <th>imported</th>
                 <th></th>
               </tr>
@@ -199,6 +202,9 @@ export default function ImportScreen() {
                   <td>{ssd.folderCount.toLocaleString()}</td>
                   <td>{ssd.fileCount.toLocaleString()}</td>
                   <td>{humanBytes(ssd.totalBytes)}</td>
+                  <td>
+                    <CapacityCell ssd={ssd} />
+                  </td>
                   <td>{fmtDate(ssd.importedAt)}</td>
                   <td>
                     <button
@@ -302,6 +308,58 @@ function download(blob: Blob, fileName: string) {
   setTimeout(() => URL.revokeObjectURL(url), 10000)
 }
 
+/**
+ * Click-to-edit drive capacity. Accepts "2 TB" style input; blank clears the
+ * manual override (falling back to whatever the export declared, if anything).
+ */
+export function CapacityCell({ ssd }: { ssd: SsdMeta }) {
+  const setSsdCapacity = useStore((s) => s.setSsdCapacity)
+  const [editing, setEditing] = useState(false)
+  const [text, setText] = useState('')
+  const capacity = effectiveCapacity(ssd)
+
+  const commit = () => {
+    setEditing(false)
+    const t = text.trim()
+    if (!t) {
+      if (ssd.userCapacityBytes !== null) void setSsdCapacity(ssd.id, null)
+      return
+    }
+    const bytes = parseHumanSize(t)
+    if (bytes !== null && bytes !== ssd.userCapacityBytes) void setSsdCapacity(ssd.id, bytes)
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        className="capacity-input"
+        placeholder="e.g. 2 TB"
+        defaultValue={capacity !== null ? humanBytes(capacity) : ''}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit()
+          else if (e.key === 'Escape') setEditing(false)
+        }}
+      />
+    )
+  }
+  return (
+    <button
+      className="ghost capacity-value"
+      title="Click to set drive capacity (e.g. 2 TB)"
+      onClick={() => {
+        setText('')
+        setEditing(true)
+      }}
+    >
+      {capacity !== null ? humanBytes(capacity) : 'set…'}
+      {ssd.userCapacityBytes !== null && <span className="edited"> ·edited</span>}
+    </button>
+  )
+}
+
 function ReportRow({ item }: { item: QueueItem }) {
   const r = item.report
   const status =
@@ -324,6 +382,7 @@ function ReportRow({ item }: { item: QueueItem }) {
         <td>{r ? r.folderCount.toLocaleString() : ''}</td>
         <td>{r ? r.fileCount.toLocaleString() : ''}</td>
         <td>{r ? humanBytes(r.totalBytes) : ''}</td>
+        <td>{r?.capacityBytes != null ? humanBytes(r.capacityBytes) : r ? '—' : ''}</td>
         <td>
           {r?.dateMin != null ? `${fmtDate(r.dateMin)} → ${fmtDate(r.dateMax)}` : ''}
         </td>
@@ -331,7 +390,7 @@ function ReportRow({ item }: { item: QueueItem }) {
       </tr>
       {r && r.warnings.length > 0 && (
         <tr>
-          <td colSpan={9} className="warnings">
+          <td colSpan={10} className="warnings">
             {r.warnings.map((w, i) => (
               <div key={i}>
                 ⚠ [{w.type}] {w.message}

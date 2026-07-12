@@ -9,8 +9,20 @@
   --tx-1: #9aa0a8; /* secondary: metadata, labels */
   --tx-2: #5c6168; /* tertiary: hints, disabled */
   --accent: #e8eaed; /* monochrome accent: focus ring, active filter */
-  --del: #e0574f; /* the ONLY color: delete state */
+  --del: #e0574f; /* delete state — the only color allowed to mean "delete" */
   --del-dim: #57302e; /* delete row tint / bar fill */
+  /* Kind palette (charts only) — desaturated, CVD-validated against --bg-0.
+     Red stays reserved for delete; these never encode state. */
+  --k-video: #5a8fc7;
+  --k-video-dim: #2b3f55;
+  --k-image: #63a35e;
+  --k-image-dim: #2f4630;
+  --k-project: #b8863c;
+  --k-project-dim: #4a3a20;
+  --k-other: #565b63;
+  --k-other-dim: #33373c;
+  /* Age heat — warm-grey rgb triplet, used as rgba(var(--age-warm), a) */
+  --age-warm: 138, 127, 114;
   --mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', 'IBM Plex Mono', Consolas, monospace;
 }
 
@@ -661,17 +673,41 @@ input[type='range'] {
 .manifest .group-head .spacer {
   flex: 1;
 }
-.manifest .capbar {
-  height: 4px;
-  background: var(--bg-2);
-  margin: 8px 0 12px;
-  position: relative;
+/* Capacity bar — kept · reclaim (red) · free. Free space is the empty track. */
+.capacity-bar {
+  display: flex;
+  background: var(--bg-0);
+  border: 1px solid var(--line);
+  overflow: hidden;
 }
-.manifest .capbar .fill {
-  position: absolute;
-  inset: 0 auto 0 0;
+.capacity-bar.unknown {
+  border-style: dashed;
+}
+.capacity-bar .seg.kept {
+  background: var(--bg-2);
+  border-right: 1px solid var(--line);
+}
+.capacity-bar .seg.reclaim {
   background: var(--del-dim);
   border-right: 1px solid var(--del);
+}
+.manifest .capacity-bar {
+  margin: 8px 0 12px;
+}
+.capacity-input {
+  width: 90px;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+.capacity-value {
+  border: none;
+  padding: 0;
+  text-decoration: underline dotted var(--tx-2);
+  text-underline-offset: 3px;
+}
+.capacity-value .edited {
+  color: var(--tx-2);
+  font-size: 11px;
 }
 .manifest .entries {
   max-height: 280px;

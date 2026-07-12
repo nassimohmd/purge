@@ -55,6 +55,7 @@ interface PurgeState {
   applyImport: (result: ParseResult) => Promise<dbi.RematchReport>
   removeSsd: (ssdId: string) => Promise<void>
 
+  setSsdCapacity: (ssdId: string, bytes: number | null) => Promise<void>
   mark: (nodes: NodeRec[], state: DecisionState | null) => void
   setNote: (nodes: NodeRec[], note: string) => void
   undo: () => void
@@ -122,6 +123,13 @@ export const useStore = create<PurgeState>((set, get) => ({
     await dbi.deleteSsd(ssdId)
     const fresh = await dbi.loadAll()
     set({ ssds: fresh.ssds, foldersBySsd: fresh.foldersBySsd, decisions: fresh.decisions })
+  },
+
+  setSsdCapacity: async (ssdId, bytes) => {
+    await dbi.setSsdCapacity(ssdId, bytes)
+    set((s) => ({
+      ssds: s.ssds.map((x) => (x.id === ssdId ? { ...x, userCapacityBytes: bytes } : x)),
+    }))
   },
 
   mark: (nodes, state) => {

@@ -11,6 +11,7 @@ import {
   type ManifestEntry,
 } from '../lib/manifest'
 import { humanBytes, relAge } from '../lib/format'
+import CapacityBar from './CapacityBar'
 
 function download(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob)
@@ -117,14 +118,7 @@ export default function ManifestScreen() {
               {g.ssd.diskSerial ? ` · serial ${g.ssd.diskSerial}` : ''}
             </span>
           </div>
-          <div className="capbar">
-            <div
-              className="fill"
-              style={{
-                width: `${Math.min(100, (g.bytes / Math.max(1, g.ssd.totalBytes)) * 100)}%`,
-              }}
-            />
-          </div>
+          <CapacityBar ssd={g.ssd} reclaimBytes={g.bytes} height={4} />
           <div className="entries">
             {g.entries.map(({ node, note }) => (
               <div className="entry" key={node.path}>
