@@ -9,7 +9,7 @@ import {
   manifestScript,
   toPosixPath,
 } from '../src/lib/manifest'
-import { mkNode } from './fixture'
+import { mkNode, mkSsd } from './fixture'
 
 const SSD = 'sn:test'
 const d = (path: string, state: DecisionState, note = ''): [string, Decision] => [
@@ -75,16 +75,7 @@ describe('CSV export', () => {
 })
 
 describe('shell script export', () => {
-  const ssd: SsdMeta = {
-    id: SSD,
-    name: 'SSD 1',
-    diskSerial: '3231',
-    importedAt: 0,
-    totalBytes: 1000,
-    fileCount: 1,
-    folderCount: 1,
-    sourceFileName: 'x.txt',
-  }
+  const ssd: SsdMeta = mkSsd(SSD)
 
   it('is dry-run by default, guards the volume, and quotes hostile names', () => {
     const node = mkNode(SSD, "SSD 1:client's folder", 1, 600)

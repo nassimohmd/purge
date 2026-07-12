@@ -9,6 +9,7 @@ import {
   importSession,
   loadAll,
   saveImport,
+  setSsdCapacity,
 } from '../src/lib/db'
 import { dkey } from '../src/lib/types'
 import { assemble, fileRow, folderRow, sampleSsd1, toBuffer } from './fixture'
@@ -109,5 +110,57 @@ describe('persistence', () => {
   it('rejects a non-session JSON file', async () => {
     const db = freshDb()
     await expect(importSession('{"hello":"world"}', db)).rejects.toThrow(/Not a Purge session/)
+  })
+})
+
+describe('capacity persistence', () => {
+  it('manual capacity override survives a re-import', async () => {
+    const db = freshDb()
+    const first = parseNeoFinderExport(toBuffer(sampleSsd1()), 'SSD_1.txt')
+    await saveImport(first, db)
+    await setSsdCapacity(first.ssd.id, 2e12, db)
+
+    const second = parseNeoFinderExport(toBuffer(sampleSsd1()), 'SSD_1_v2.txt')
+    await saveImport(second, db)
+
+    const state = await loadAll(db)
+    expect(state.ssds[0].userCapacityBytes).toBe(2e12)
+  })
+
+  it('a re-import without capacity lines keeps the previously parsed capacity', async () => {
+    const db = freshDb()
+    const withCap = parseNeoFinderExport(
+      toBuffer(assemble([folderRow('SSD 1:X', 10), fileRow('SSD 1:X:a.mov', 10)], true, ['Size 2 TB'])),
+      'SSD_1.txt',
+    )
+    await saveImport(withCap, db)
+    const withoutCap = parseNeoFinderExport(
+      toBuffer(assemble([folderRow('SSD 1:X', 10), fileRow('SSD 1:X:a.mov', 10)])),
+      'SSD_1_v2.txt',
+    )
+    expect(withoutCap.ssd.capacityBytes).toBeNull()
+    await saveImport(withoutCap, db)
+    expect((await loadAll(db)).ssds[0].capacityBytes).toBe(2e12)
+  })
+
+  it('imports a v1 session file (no capacity fields) with nulls', async () => {
+    const db1 = freshDb()
+    const parsed = parseNeoFinderExport(toBuffer(sampleSsd1()), 'SSD_1.txt')
+    await saveImport(parsed, db1)
+    const json = await (await exportSession(db1)).text()
+
+    // Simulate a pre-capacity (v1) session file.
+    const data = JSON.parse(json)
+    data.version = 1
+    for (const s of data.ssds) {
+      delete s.capacityBytes
+      delete s.freeBytes
+      delete s.userCapacityBytes
+    }
+
+    const db2 = freshDb()
+    const state = await importSession(JSON.stringify(data), db2)
+    expect(state.ssds[0].capacityBytes).toBeNull()
+    expect(state.ssds[0].userCapacityBytes).toBeNull()
   })
 })

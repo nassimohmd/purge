@@ -10,7 +10,17 @@ export interface SsdMeta {
   fileCount: number
   folderCount: number
   sourceFileName: string
+  /** Drive capacity parsed from the catalog metadata block, if present. */
+  capacityBytes: number | null
+  /** Free space parsed from the catalog metadata block, if present. */
+  freeBytes: number | null
+  /** Manual capacity override (survives re-imports). */
+  userCapacityBytes: number | null
 }
+
+/** Capacity to display/compute with: manual override wins over parsed. */
+export const effectiveCapacity = (ssd: SsdMeta): number | null =>
+  ssd.userCapacityBytes ?? ssd.capacityBytes ?? null
 
 export interface NodeRec {
   ssdId: string
@@ -63,6 +73,8 @@ export interface ImportReport {
   totalBytes: number
   dateMin: number | null
   dateMax: number | null
+  capacityBytes: number | null
+  freeBytes: number | null
   warnings: ImportWarning[]
   sourceFileName: string
 }
