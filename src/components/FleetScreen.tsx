@@ -139,14 +139,14 @@ function FleetCard({
         <span className="card-name">{ssd.name}</span>
         <button
           className="ghost card-burst"
-          title="sunburst (o)"
+          title="open sunburst (o)"
           onClick={(e) => {
             e.stopPropagation()
             s.setFleetFocusIdx(idx)
             s.setDrillSsd(ssd.id)
           }}
         >
-          ◔
+          ◔ sunburst
         </button>
       </div>
       <CapacityBar ssd={ssd} reclaimBytes={stats.reclaimBytes} height={8} />
