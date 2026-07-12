@@ -317,34 +317,6 @@ export function parseNeoFinderExport(
     rec.sizeBytes = (childrenOf.get(p) ?? []).reduce((s, c) => s + c.sizeBytes, 0)
   }
 
-  // Guard against a merged/rescanned export containing more than one
-  // top-level path prefix (e.g. the drive was renamed between catalog
-  // scans, and stale rows under the old name survived into the export).
-  // Summing every root's declared cumulative size would silently inflate
-  // the total without a matching file count — keep only the primary root's
-  // subtree instead, and say so.
-  const allRoots = [...nodes.values()].filter((n) => n.depth === 0)
-  if (allRoots.length > 1) {
-    const byName = metaName != null ? allRoots.find((r) => r.name === metaName) : undefined
-    const primary = byName ?? allRoots.reduce((a, b) => (b.sizeBytes > a.sizeBytes ? b : a))
-    for (const r of allRoots) {
-      if (r === primary) continue
-      const prefix = r.path + ':'
-      let dropped = 0
-      for (const p of [...nodes.keys()]) {
-        if (p === r.path || p.startsWith(prefix)) {
-          nodes.delete(p)
-          dropped++
-        }
-      }
-      warn(
-        'multiple-roots',
-        `Ignored second top-level volume "${r.name}" (${r.sizeBytes.toLocaleString()} B, ` +
-          `${dropped} row(s)) — kept "${primary.name}". The export may be a merge of two scans.`,
-      )
-    }
-  }
-
   // Sanity check: folder rows carry authoritative CUMULATIVE sizes, but a
   // declared size deviating >2% from the sum of direct children flags a
   // truncated/partial export.

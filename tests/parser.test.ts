@@ -207,42 +207,33 @@ describe('tolerance & warnings', () => {
   })
 })
 
-describe('multiple top-level roots (merged/rescanned export)', () => {
-  it('keeps only the root matching the metadata Name, drops the other and warns', () => {
-    const text = assemble([
-      folderRow('SSD 1:Alpha', 100),
-      fileRow('SSD 1:Alpha:a.mov', 100),
-      folderRow('OldVol:Beta', 900),
-      fileRow('OldVol:Beta:b.mov', 900),
-    ])
-    const parsed = parseNeoFinderExport(toBuffer(text), 'x.txt')
-    expect(parsed.report.warnings.some((w) => w.type === 'multiple-roots')).toBe(true)
-    expect(parsed.ssd.totalBytes).toBe(100)
-    expect(parsed.report.fileCount).toBe(1)
-    expect(parsed.nodes.some((n) => n.path.startsWith('OldVol'))).toBe(false)
-    expect(parsed.nodes.some((n) => n.path.startsWith('SSD 1'))).toBe(true)
-  })
-
-  it('falls back to the largest root when no metadata Name is present', () => {
+describe('multiple top-level folders (no common volume-name prefix)', () => {
+  // Some NeoFinder exports don't prefix Path with the volume name at all —
+  // every top-level project folder is then its own depth-0 "root". This is
+  // normal and must never be treated as a merged/duplicate scan: a prior fix
+  // that kept only one such root and discarded the rest caused real data
+  // loss (a user's drive went from the correct ~981 GB / thousands of rows
+  // down to ~300 GB / 3,134 rows after import). All top-level folders must
+  // be kept and summed.
+  it('keeps and sums every top-level folder, none are dropped', () => {
     const text = assemble(
       [
-        folderRow('Small:X', 50),
-        fileRow('Small:X:a.mov', 50),
-        folderRow('Big:Y', 500),
-        fileRow('Big:Y:b.mov', 500),
+        folderRow('Alpha', 100),
+        fileRow('Alpha:a.mov', 100),
+        folderRow('Beta', 900),
+        fileRow('Beta:b.mov', 900),
+        folderRow('Gamma', 50),
+        fileRow('Gamma:c.mov', 50),
       ],
       false,
     )
     const parsed = parseNeoFinderExport(toBuffer(text), 'x.txt')
-    expect(parsed.report.warnings.some((w) => w.type === 'multiple-roots')).toBe(true)
-    expect(parsed.ssd.name).toBe('Big')
-    expect(parsed.ssd.totalBytes).toBe(500)
-    expect(parsed.nodes.some((n) => n.path.startsWith('Small'))).toBe(false)
-  })
-
-  it('does not warn for a normal single-root export', () => {
-    const parsed = parseNeoFinderExport(toBuffer(sampleSsd1()), 'SSD_1.txt')
-    expect(parsed.report.warnings.some((w) => w.type === 'multiple-roots')).toBe(false)
+    expect(parsed.report.warnings).toEqual([])
+    expect(parsed.ssd.totalBytes).toBe(100 + 900 + 50)
+    expect(parsed.report.fileCount).toBe(3)
+    expect(parsed.nodes.some((n) => n.path === 'Alpha')).toBe(true)
+    expect(parsed.nodes.some((n) => n.path === 'Beta')).toBe(true)
+    expect(parsed.nodes.some((n) => n.path === 'Gamma')).toBe(true)
   })
 })
 
