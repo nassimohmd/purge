@@ -121,7 +121,7 @@ export default function TriageBoard() {
         return
       }
       const s = useStore.getState()
-      if (s.helpOpen || s.noteFor || s.focusMode || s.screen !== 'board') return
+      if (s.helpOpen || s.noteFor || s.focusMode || s.drillSsdId || s.screen !== 'board') return
 
       const focusIdx = s.focusKey !== null ? (idxById.get(s.focusKey) ?? -1) : -1
       const focusedRow = focusIdx >= 0 ? flatRows[focusIdx] : null

@@ -5,6 +5,7 @@ import FleetScreen from './components/FleetScreen'
 import TriageBoard from './components/TriageBoard'
 import ManifestScreen from './components/ManifestScreen'
 import FocusMode from './components/FocusMode'
+import SunburstDrillIn from './components/SunburstDrillIn'
 import Ledger from './components/Ledger'
 import HelpOverlay from './components/HelpOverlay'
 import NoteEditor from './components/NoteEditor'
@@ -14,6 +15,7 @@ export default function App() {
   const loaded = useStore((s) => s.loaded)
   const screen = useStore((s) => s.screen)
   const focusMode = useStore((s) => s.focusMode)
+  const drillSsdId = useStore((s) => s.drillSsdId)
   const helpOpen = useStore((s) => s.helpOpen)
   const noteFor = useStore((s) => s.noteFor)
   const init = useStore((s) => s.init)
@@ -89,6 +91,7 @@ export default function App() {
         {screen === 'manifest' && <ManifestScreen />}
       </div>
       <Ledger />
+      {drillSsdId && <SunburstDrillIn />}
       {focusMode && <FocusMode />}
       {helpOpen && <HelpOverlay />}
       {noteFor && <NoteEditor />}

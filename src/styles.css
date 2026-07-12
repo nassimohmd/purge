@@ -320,6 +320,71 @@ input[type='range'] {
 .sunburst-tip .tip-meta {
   color: var(--tx-1);
 }
+
+/* Full-screen sunburst drill-in */
+.drill .drill-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  padding: 32px;
+}
+.drill .drill-side {
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.drill .ssd-label {
+  font-size: 16px;
+  font-weight: 600;
+}
+.drill .drill-figures {
+  font-size: 12px;
+  color: var(--tx-1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.drill .drill-figures .marked {
+  color: var(--del);
+}
+.drill .drill-crumbs {
+  font-size: 12px;
+  color: var(--tx-2);
+  word-break: break-all;
+}
+.drill .drill-crumbs .ghost {
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  text-decoration: underline dotted var(--tx-2);
+  text-underline-offset: 3px;
+}
+.drill .drill-legend {
+  font-size: 11px;
+  color: var(--tx-1);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.drill .drill-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 1px solid transparent;
+  margin: 0 4px 0 10px;
+  vertical-align: -1px;
+}
+.drill .drill-legend i:first-child {
+  margin-left: 0;
+}
+.drill .drill-keys {
+  font-size: 11px;
+  color: var(--tx-2);
+}
 .thead,
 .row {
   display: grid;
