@@ -67,7 +67,6 @@ export interface ImportWarning {
     | 'skipped-row'
     | 'no-children'
     | 'unknown-column'
-    | 'multiple-roots'
   message: string
 }
 
