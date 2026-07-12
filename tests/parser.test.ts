@@ -237,6 +237,51 @@ describe('multiple top-level folders (no common volume-name prefix)', () => {
   })
 })
 
+describe('POSIX-style Path column (/Volumes/<name>/...)', () => {
+  // Confirmed from a real user export: NeoFinder can emit Path as an
+  // absolute POSIX path instead of its native colon form. Before path
+  // normalization, every row had zero colons and was treated as its own
+  // depth-0 root, so a file's bytes were counted once on its own row and
+  // again via every ancestor folder's cumulative declared size — inflating
+  // a real ~981 GB / 1 TB drive to ~2.45 TB.
+  it('reconstructs the same hierarchy and totals as the colon-path form', () => {
+    const posix = assemble([
+      folderRow('/Volumes/SSD 1/Hypedrop Logos', 947979210),
+      folderRow('/Volumes/SSD 1/Hypedrop Logos/Snowbombing 2023', 500000000),
+      fileRow('/Volumes/SSD 1/Hypedrop Logos/Snowbombing 2023/main.mp4', 500000000),
+      fileRow('/Volumes/SSD 1/Hypedrop Logos/logo_v1.mov', 300000000),
+      fileRow('/Volumes/SSD 1/Hypedrop Logos/logo_v2.mov', 147979210),
+      folderRow('/Volumes/SSD 1/JA Golf 25', 3000),
+      fileRow('/Volumes/SSD 1/JA Golf 25/edit.prproj', 3000),
+    ])
+    const parsed = parseNeoFinderExport(toBuffer(posix), 'x.txt')
+
+    expect(parsed.report.warnings).toEqual([])
+    // Same shape/totals as the verified colon-path sample (sampleSsd1) — no inflation.
+    expect(parsed.ssd.totalBytes).toBe(947979210 + 3000)
+    expect(parsed.report.fileCount).toBe(4)
+
+    const hypedrop = parsed.nodes.find((n) => n.name === 'Hypedrop Logos')!
+    expect(hypedrop.path).toBe('SSD 1:Hypedrop Logos')
+    expect(hypedrop.depth).toBe(1) // a real top-level folder, not a phantom root
+    expect(hypedrop.parentPath).toBe('SSD 1')
+    expect(hypedrop.sizeBytes).toBe(947979210)
+
+    const snow = parsed.nodes.find((n) => n.name === 'Snowbombing 2023')!
+    expect(snow.path).toBe('SSD 1:Hypedrop Logos:Snowbombing 2023')
+    expect(snow.depth).toBe(2)
+    expect(snow.parentPath).toBe('SSD 1:Hypedrop Logos')
+
+    // Exactly one synthesized volume root, not one "root" per row.
+    expect(parsed.nodes.filter((n) => n.depth === 0)).toHaveLength(1)
+  })
+
+  it('leaves an already colon-style Path untouched', () => {
+    const parsed = parseNeoFinderExport(toBuffer(sampleSsd1()), 'SSD_1.txt')
+    expect(parsed.nodes.find((n) => n.path === 'SSD 1:Hypedrop Logos')).toBeDefined()
+  })
+})
+
 describe('capacity metadata', () => {
   const body = [folderRow('SSD 1:X', 10), fileRow('SSD 1:X:a.mov', 10)]
 
