@@ -130,6 +130,21 @@ const numOrNull = (s: string | undefined): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
+/**
+ * NeoFinder can export the Path column in its native colon form
+ * ("SSD 1:Folder:file.ext") or as a POSIX absolute path
+ * ("/Volumes/SSD 1/Folder/file.ext"), depending on export settings/version.
+ * Everything downstream (depth, parentPath, dkey, IndexedDB keys, the
+ * manifest's toPosixPath) assumes the colon form, so convert once here. A
+ * path with no "/" is assumed already colon-style and passed through.
+ */
+function normalizePath(raw: string): string {
+  if (!raw.includes('/')) return raw
+  const segs = raw.split('/').filter((s) => s.length > 0)
+  if (segs[0] === 'Volumes') segs.shift()
+  return segs.join(':')
+}
+
 export function parseNeoFinderExport(
   buf: ArrayBuffer,
   sourceFileName: string,
@@ -214,7 +229,7 @@ export function parseNeoFinderExport(
       continue
     }
 
-    const path = field(f, cPath).trim()
+    const path = normalizePath(field(f, cPath).trim())
     if (!path) {
       counters.skipped++
       continue

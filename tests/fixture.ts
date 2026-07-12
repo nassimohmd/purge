@@ -30,8 +30,11 @@ export function row(cells: Cell): string {
   return HEADER.map((h) => cells[h] ?? '').join('\t')
 }
 
+/** Basename for either colon-style ("A:B:c.ext") or POSIX ("/A/B/c.ext") paths. */
+const baseName = (path: string): string => path.split(path.includes('/') ? '/' : ':').pop()!
+
 export function folderRow(path: string, size: number, modified = '27 June 2020 at 5:22 PM'): string {
-  const name = path.split(':').pop()!
+  const name = baseName(path)
   return row({
     Catalog: 'SSD 1',
     'Volume Name': 'SSD 1',
@@ -49,7 +52,7 @@ export function fileRow(
   size: number,
   extra: Cell = {},
 ): string {
-  const name = path.split(':').pop()!
+  const name = baseName(path)
   return row({
     Catalog: 'SSD 1',
     'Volume Name': 'SSD 1',
