@@ -59,8 +59,9 @@ export default function SunburstPanel() {
         size={280}
         centerLabel
         onSelect={(node) => s.openBoardForSsd(ssd.id, node.path)}
+        onMark={(node, state) => s.mark([node], state)}
       />
-      <div className="panel-hint">click a segment to jump the board to it</div>
+      <div className="panel-hint">click a segment to jump the board · hover for mark buttons</div>
     </div>
   )
 }

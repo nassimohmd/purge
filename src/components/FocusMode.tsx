@@ -142,15 +142,27 @@ export default function FocusMode() {
           {humanBytes(sessionMarkedBytes)} marked this session
         </span>
         <span className="keys">
-          <span>
+          <button
+            className="ghost"
+            disabled={!node}
+            onClick={() => node && useStore.getState().mark([node], 'delete')}
+          >
             <b>d</b> delete
-          </span>
-          <span>
+          </button>
+          <button
+            className="ghost"
+            disabled={!node}
+            onClick={() => node && useStore.getState().mark([node], 'keep')}
+          >
             <b>f</b> keep
-          </span>
-          <span>
+          </button>
+          <button
+            className="ghost"
+            disabled={!node}
+            onClick={() => node && useStore.getState().mark([node], 'review')}
+          >
             <b>r</b> review
-          </span>
+          </button>
           <span>
             <b>j</b> skip
           </span>

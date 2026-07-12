@@ -117,8 +117,8 @@ export default function SunburstDrillIn() {
             </div>
           </div>
           <div className="drill-keys">
-            click zoom in · center/backspace zoom out · enter open in board · [ ] other SSDs · esc
-            close
+            click zoom in · hover for mark buttons · center/backspace zoom out · enter open in
+            board · [ ] other SSDs · esc close
           </div>
           <button onClick={() => s.openBoardForSsd(ssd.id, zoomPath ?? undefined)}>
             open in board ↵
@@ -133,6 +133,7 @@ export default function SunburstDrillIn() {
           centerLabel
           onSelect={onSelect}
           onZoomOut={() => setZoomPath((p) => (p !== null ? nextZoomOut(p) : null))}
+          onMark={(node, state) => s.mark([node], state)}
         />
       </div>
     </div>

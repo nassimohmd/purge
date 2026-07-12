@@ -399,6 +399,17 @@ function Row({
       <span className="num">{node.fileCount.toLocaleString()}</span>
       <span className="meta">{kind.label}</span>
       <span className="meta">{note ? '▪' : ''}</span>
+      <div className="row-actions" onClick={(e) => e.stopPropagation()}>
+        <button className="ghost" title="mark keep (f)" onClick={() => s.mark([node], 'keep')}>
+          keep
+        </button>
+        <button className="ghost" title="mark review (r)" onClick={() => s.mark([node], 'review')}>
+          review
+        </button>
+        <button className="danger" title="mark delete (d)" onClick={() => s.mark([node], 'delete')}>
+          delete
+        </button>
+      </div>
     </div>
   )
 }

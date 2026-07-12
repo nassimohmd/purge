@@ -23,6 +23,13 @@
   --k-other-dim: #33373c;
   /* Age heat — warm-grey rgb triplet, used as rgba(var(--age-warm), a) */
   --age-warm: 138, 127, 114;
+  /* Capacity fill status ramp (green→amber→red), CVD-validated against
+     --bg-0. Interpolated in JS (CapacityBar) — kept here for reference and
+     any future flat use. Distinct hue from --del so "drive is full" reads
+     differently from "marked for deletion" even where they sit adjacent. */
+  --fill-low: #5f9e6a;
+  --fill-mid: #b8873a;
+  --fill-high: #c1523f;
   --mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', 'IBM Plex Mono', Consolas, monospace;
 }
 
@@ -303,7 +310,7 @@ input[type='range'] {
 }
 .sunburst-tip {
   position: absolute;
-  pointer-events: none;
+  pointer-events: auto;
   background: var(--bg-2);
   border: 1px solid var(--line);
   padding: 6px 8px;
@@ -319,6 +326,15 @@ input[type='range'] {
 }
 .sunburst-tip .tip-meta {
   color: var(--tx-1);
+}
+.sunburst-tip .tip-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+.sunburst-tip .tip-actions button {
+  padding: 2px 8px;
+  font-size: 11px;
 }
 
 /* Full-screen sunburst drill-in */
@@ -482,6 +498,34 @@ input[type='range'] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Mouse-clickable marking: hidden until hover/focus, occludes the trailing
+   kind/note cells rather than shifting the layout. */
+.row-actions {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 16px 0 24px;
+  background: linear-gradient(to right, transparent, var(--bg-1) 24px);
+  opacity: 0;
+  pointer-events: none;
+}
+.row:hover .row-actions,
+.row.focused .row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.row.focused .row-actions {
+  background: linear-gradient(to right, transparent, var(--bg-2) 24px);
+}
+.row-actions button {
+  padding: 2px 8px;
+  font-size: 11px;
 }
 .row .num {
   text-align: right;
@@ -773,6 +817,20 @@ input[type='range'] {
   color: var(--tx-0);
   font-weight: 400;
 }
+.focus-bottom .keys button {
+  margin-right: 16px;
+  padding: 0;
+  border: none;
+  font-size: 12px;
+  color: var(--tx-2);
+}
+.focus-bottom .keys button:hover:not(:disabled) {
+  color: var(--tx-1);
+  background: transparent;
+}
+.focus-bottom .keys button b {
+  color: var(--tx-0);
+}
 .focus-done {
   text-align: center;
   color: var(--tx-1);
@@ -829,6 +887,7 @@ input[type='range'] {
 }
 .capacity-bar .seg.reclaim {
   background: var(--del-dim);
+  border-left: 2px solid var(--bg-0);
   border-right: 1px solid var(--del);
 }
 .manifest .capacity-bar {
