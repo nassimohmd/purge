@@ -1010,12 +1010,18 @@ input[type='range'] {
 }
 .fleet-card .card-name {
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 .fleet-card .card-burst {
   border: none;
   padding: 0 2px;
   color: var(--tx-2);
-  font-size: 14px;
+  font-size: 11px;
+  white-space: nowrap;
+  flex: none;
 }
 .fleet-card .card-burst:hover {
   color: var(--tx-0);
