@@ -60,7 +60,14 @@ export interface Decision {
 }
 
 export interface ImportWarning {
-  type: 'bad-date' | 'size-mismatch' | 'duplicate-path' | 'skipped-row' | 'no-children' | 'unknown-column'
+  type:
+    | 'bad-date'
+    | 'size-mismatch'
+    | 'duplicate-path'
+    | 'skipped-row'
+    | 'no-children'
+    | 'unknown-column'
+    | 'multiple-roots'
   message: string
 }
 
@@ -75,6 +82,8 @@ export interface ImportReport {
   dateMax: number | null
   capacityBytes: number | null
   freeBytes: number | null
+  /** Rows whose path exactly matched an earlier row (last one wins). */
+  duplicateCount: number
   warnings: ImportWarning[]
   sourceFileName: string
 }

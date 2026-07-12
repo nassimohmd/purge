@@ -189,6 +189,7 @@ describe('tolerance & warnings', () => {
     const parsed = parseNeoFinderExport(toBuffer(text), 'x.txt')
     expect(parsed.nodes.find((n) => n.name === 'a.mov')!.sizeBytes).toBe(20)
     expect(parsed.report.warnings.some((w) => w.type === 'duplicate-path')).toBe(true)
+    expect(parsed.report.duplicateCount).toBe(1)
   })
 
   it('falls back to volume name when the metadata block is missing', () => {
@@ -203,6 +204,45 @@ describe('tolerance & warnings', () => {
     expect(() => parseNeoFinderExport(toBuffer('just some\nrandom text'), 'x.txt')).toThrow(
       /Export as Text/,
     )
+  })
+})
+
+describe('multiple top-level roots (merged/rescanned export)', () => {
+  it('keeps only the root matching the metadata Name, drops the other and warns', () => {
+    const text = assemble([
+      folderRow('SSD 1:Alpha', 100),
+      fileRow('SSD 1:Alpha:a.mov', 100),
+      folderRow('OldVol:Beta', 900),
+      fileRow('OldVol:Beta:b.mov', 900),
+    ])
+    const parsed = parseNeoFinderExport(toBuffer(text), 'x.txt')
+    expect(parsed.report.warnings.some((w) => w.type === 'multiple-roots')).toBe(true)
+    expect(parsed.ssd.totalBytes).toBe(100)
+    expect(parsed.report.fileCount).toBe(1)
+    expect(parsed.nodes.some((n) => n.path.startsWith('OldVol'))).toBe(false)
+    expect(parsed.nodes.some((n) => n.path.startsWith('SSD 1'))).toBe(true)
+  })
+
+  it('falls back to the largest root when no metadata Name is present', () => {
+    const text = assemble(
+      [
+        folderRow('Small:X', 50),
+        fileRow('Small:X:a.mov', 50),
+        folderRow('Big:Y', 500),
+        fileRow('Big:Y:b.mov', 500),
+      ],
+      false,
+    )
+    const parsed = parseNeoFinderExport(toBuffer(text), 'x.txt')
+    expect(parsed.report.warnings.some((w) => w.type === 'multiple-roots')).toBe(true)
+    expect(parsed.ssd.name).toBe('Big')
+    expect(parsed.ssd.totalBytes).toBe(500)
+    expect(parsed.nodes.some((n) => n.path.startsWith('Small'))).toBe(false)
+  })
+
+  it('does not warn for a normal single-root export', () => {
+    const parsed = parseNeoFinderExport(toBuffer(sampleSsd1()), 'SSD_1.txt')
+    expect(parsed.report.warnings.some((w) => w.type === 'multiple-roots')).toBe(false)
   })
 })
 

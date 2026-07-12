@@ -388,9 +388,14 @@ function ReportRow({ item }: { item: QueueItem }) {
         </td>
         <td style={{ color: item.status === 'error' ? 'var(--del)' : undefined }}>{status}</td>
       </tr>
-      {r && r.warnings.length > 0 && (
+      {r && (r.warnings.length > 0 || r.duplicateCount > 0) && (
         <tr>
           <td colSpan={10} className="warnings">
+            {r.duplicateCount > 0 && (
+              <div>
+                ⚠ {r.duplicateCount.toLocaleString()} row(s) had a duplicate path (last one wins)
+              </div>
+            )}
             {r.warnings.map((w, i) => (
               <div key={i}>
                 ⚠ [{w.type}] {w.message}
