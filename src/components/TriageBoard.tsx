@@ -6,6 +6,7 @@ import { dkey } from '../lib/types'
 import { buildTriageList, hasDescendantDecisions, kindLabel, type SortCol } from '../lib/board'
 import { effectiveState } from '../lib/resolve'
 import { humanBytes, relAge } from '../lib/format'
+import { ageT } from '../lib/stats'
 import FilterBar from './FilterBar'
 
 type FlatRow =
@@ -87,6 +88,13 @@ export default function TriageBoard() {
     flatRows.forEach((r, i) => m.set(rowId(r), i))
     return m
   }, [flatRows])
+
+  // Inline size bars are scaled to the largest visible folder, log scale —
+  // sizes span KB→TB, linear would blank out everything but the top rows.
+  const maxSize = useMemo(
+    () => triage.reduce((m, n) => Math.max(m, n.sizeBytes), 0),
+    [triage],
+  )
 
   const parentRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
@@ -249,6 +257,7 @@ export default function TriageBoard() {
                 ssdName={ssdNames.get(row.node.ssdId) ?? ''}
                 focused={focusKey === rowId(row)}
                 isSelected={selected.has(rowId(row))}
+                maxSize={maxSize}
               />
             )
           })}
@@ -267,12 +276,14 @@ function Row({
   ssdName,
   focused,
   isSelected,
+  maxSize,
 }: {
   row: FlatRow
   top: number
   ssdName: string
   focused: boolean
   isSelected: boolean
+  maxSize: number
 }) {
   const decisions = useStore((s) => s.decisions)
   const s = useStore.getState()
@@ -327,12 +338,23 @@ function Row({
   const partial = state === 'delete' && hasDescendantDecisions(decisions, node.ssdId, node.path)
   const kind = kindLabel(node)
 
+  // Age heat: older rows get a warm tint as a deletion cue — except rows
+  // already marked delete, where the red treatment owns the row.
+  const aget = state === 'delete' ? 0 : ageT(node.modified)
+  const sizeW =
+    maxSize > 0 ? (100 * Math.log10(node.sizeBytes + 1)) / Math.log10(maxSize + 1) : 0
+
   return (
     <div
       className={`row ${level > 0 ? 'child' : ''} ${focused ? 'focused' : ''} ${
         isSelected ? 'selected' : ''
       } ${state === 'delete' ? 'deleted' : ''}`}
-      style={{ transform: `translateY(${top}px)` }}
+      style={
+        {
+          transform: `translateY(${top}px)`,
+          '--aget': aget.toFixed(2),
+        } as React.CSSProperties
+      }
       onClick={(e) => {
         if (e.shiftKey || e.metaKey || e.ctrlKey) s.toggleSelect(rowId(row))
         else {
@@ -347,7 +369,14 @@ function Row({
         {partial && <span className="partial">±</span>}
       </span>
       <span className="meta">{ssdName}</span>
-      <span className="num size">{humanBytes(node.sizeBytes)}</span>
+      <span
+        className="num size"
+        style={{
+          backgroundImage: `linear-gradient(to left, rgba(154, 160, 168, 0.13) ${sizeW}%, transparent ${sizeW}%)`,
+        }}
+      >
+        {humanBytes(node.sizeBytes)}
+      </span>
       <span className="num">{relAge(node.modified)}</span>
       <span className="num">{node.fileCount.toLocaleString()}</span>
       <span className="meta">{kind.label}</span>

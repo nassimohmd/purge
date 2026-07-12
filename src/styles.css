@@ -296,6 +296,14 @@ input[type='range'] {
   right: 0;
   top: 0;
 }
+/* Age heat: rows set --aget (0 fresh → 1 stale) inline; delete rows force 0.
+   A background-image layer, so hover/focus background-colors still show through. */
+.row {
+  background-image: linear-gradient(
+    rgba(var(--age-warm), calc(var(--aget, 0) * 0.09)),
+    rgba(var(--age-warm), calc(var(--aget, 0) * 0.09))
+  );
+}
 .row:hover {
   background: var(--bg-1);
 }
