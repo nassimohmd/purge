@@ -303,7 +303,7 @@ input[type='range'] {
 }
 .sunburst-tip {
   position: absolute;
-  pointer-events: none;
+  pointer-events: auto;
   background: var(--bg-2);
   border: 1px solid var(--line);
   padding: 6px 8px;
@@ -319,6 +319,15 @@ input[type='range'] {
 }
 .sunburst-tip .tip-meta {
   color: var(--tx-1);
+}
+.sunburst-tip .tip-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+.sunburst-tip .tip-actions button {
+  padding: 2px 8px;
+  font-size: 11px;
 }
 
 /* Full-screen sunburst drill-in */

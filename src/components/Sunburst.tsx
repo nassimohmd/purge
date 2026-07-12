@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import type { Decision, NodeRec } from '../lib/types'
+import type { Decision, DecisionState, NodeRec } from '../lib/types'
 import { humanBytes, relAge } from '../lib/format'
 import { effectiveState } from '../lib/resolve'
 import { ageT } from '../lib/stats'
@@ -45,6 +45,7 @@ export default function Sunburst({
   size,
   onSelect,
   onZoomOut,
+  onMark,
   centerLabel,
 }: {
   ssdId: string
@@ -56,6 +57,8 @@ export default function Sunburst({
   onSelect?: (node: NodeRec, seg: SunSeg) => void
   /** Click on the center hole. */
   onZoomOut?: () => void
+  /** Mark button clicked in the hover tooltip. Omit to hide the buttons. */
+  onMark?: (node: NodeRec, state: DecisionState) => void
   centerLabel?: boolean
 }) {
   const { segs, root } = useMemo(
@@ -74,21 +77,22 @@ export default function Sunburst({
   }
 
   return (
-    <div className="sunburst" ref={wrapRef} style={{ width: size, height: size }}>
+    <div
+      className="sunburst"
+      ref={wrapRef}
+      style={{ width: size, height: size }}
+      onMouseLeave={() => setTip(null)}
+    >
       <svg
         viewBox="-1.02 -1.02 2.04 2.04"
         width={size}
         height={size}
         onMouseMove={(e) => {
           const seg = segAt(e.target as Element)
-          if (!seg) {
-            setTip(null)
-            return
-          }
+          if (!seg) return
           const box = wrapRef.current!.getBoundingClientRect()
           setTip({ seg, x: e.clientX - box.left, y: e.clientY - box.top })
         }}
-        onMouseLeave={() => setTip(null)}
         onClick={(e) => {
           const seg = segAt(e.target as Element)
           if (seg) onSelect?.(seg.node, seg)
@@ -162,6 +166,19 @@ export default function Sunburst({
               </>
             )}
           </div>
+          {onMark && tip.seg.aggregate === null && (
+            <div className="tip-actions">
+              <button className="ghost" onClick={() => onMark(tip.seg.node, 'keep')}>
+                keep
+              </button>
+              <button className="ghost" onClick={() => onMark(tip.seg.node, 'review')}>
+                review
+              </button>
+              <button className="danger" onClick={() => onMark(tip.seg.node, 'delete')}>
+                delete
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
