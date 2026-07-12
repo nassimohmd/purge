@@ -244,11 +244,22 @@ export const useStore = create<PurgeState>((set, get) => ({
     set((s) => ({ boardPanel: s.boardPanel === 'sunburst' ? 'none' : 'sunburst' })),
 
   openBoardForSsd: (ssdId, focusPath) => {
-    // Focus lands on the depth-1 ancestor: that's the row the board renders.
+    // Focus the target folder's row, expanding ancestors below depth 1 so a
+    // deep sunburst segment lands on a visible row. Unknown paths (synthetic
+    // "other" aggregates) fall back to their depth-1 ancestor.
     let focusKey: string | null = null
     if (focusPath) {
       const segs = focusPath.split(':')
-      if (segs.length >= 2) focusKey = dkey(ssdId, segs.slice(0, 2).join(':'))
+      if (segs.length >= 2) {
+        const { foldersBySsd, expanded, toggleExpanded } = get()
+        const byPath = new Map((foldersBySsd[ssdId] ?? []).map((f) => [f.path, f]))
+        const target = byPath.has(focusPath) ? focusPath : segs.slice(0, 2).join(':')
+        focusKey = dkey(ssdId, target)
+        for (let d = 2; d < target.split(':').length; d++) {
+          const anc = byPath.get(segs.slice(0, d).join(':'))
+          if (anc && !expanded[dkey(ssdId, anc.path)]) toggleExpanded(anc)
+        }
+      }
     }
     set((s) => ({
       screen: 'board',

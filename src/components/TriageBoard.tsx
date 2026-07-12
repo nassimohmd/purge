@@ -8,6 +8,7 @@ import { effectiveState } from '../lib/resolve'
 import { humanBytes, relAge } from '../lib/format'
 import { ageT } from '../lib/stats'
 import FilterBar from './FilterBar'
+import SunburstPanel from './SunburstPanel'
 
 type FlatRow =
   | { type: 'folder'; node: NodeRec; level: number }
@@ -39,6 +40,7 @@ export default function TriageBoard() {
   const focusKey = useStore((s) => s.focusKey)
   const selected = useStore((s) => s.selected)
   const expanded = useStore((s) => s.expanded)
+  const boardPanel = useStore((s) => s.boardPanel)
 
   const ssdNames = useMemo(() => new Map(ssds.map((s) => [s.id, s.name])), [ssds])
 
@@ -204,6 +206,17 @@ export default function TriageBoard() {
         case 'm':
           s.setScreen('manifest')
           break
+        case 'v':
+          s.toggleBoardPanel()
+          break
+        case 'o': {
+          const ssdId =
+            s.filters.ssdIds.length === 1
+              ? s.filters.ssdIds[0]
+              : (focusedRow?.node.ssdId ?? s.ssds[0]?.id)
+          if (ssdId) s.setDrillSsd(ssdId)
+          break
+        }
         case ' ':
           e.preventDefault()
           if (focusedRow?.type === 'folder') s.setFocusKey(rowId(focusedRow))
@@ -232,39 +245,44 @@ export default function TriageBoard() {
   return (
     <div className="board">
       <FilterBar />
-      <div className="thead">
-        {COLS.map(({ col, label, cls }, i) => (
-          <span
-            key={i}
-            className={`th ${cls ?? ''} ${col && sort.col === col ? 'active' : ''}`}
-            style={cls === 'num' ? { textAlign: 'right' } : undefined}
-            onClick={col ? () => store.setSort(col) : undefined}
-          >
-            {label}
-            {col && sort.col === col ? (sort.dir === -1 ? ' ↓' : ' ↑') : ''}
-          </span>
-        ))}
-      </div>
-      <div className="tbody" ref={parentRef} tabIndex={0}>
-        <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
-          {virtualizer.getVirtualItems().map((vi) => {
-            const row = flatRows[vi.index]
-            return (
-              <Row
-                key={rowId(row)}
-                row={row}
-                top={vi.start}
-                ssdName={ssdNames.get(row.node.ssdId) ?? ''}
-                focused={focusKey === rowId(row)}
-                isSelected={selected.has(rowId(row))}
-                maxSize={maxSize}
-              />
-            )
-          })}
+      <div className="board-main">
+        <div className="board-table">
+          <div className="thead">
+            {COLS.map(({ col, label, cls }, i) => (
+              <span
+                key={i}
+                className={`th ${cls ?? ''} ${col && sort.col === col ? 'active' : ''}`}
+                style={cls === 'num' ? { textAlign: 'right' } : undefined}
+                onClick={col ? () => store.setSort(col) : undefined}
+              >
+                {label}
+                {col && sort.col === col ? (sort.dir === -1 ? ' ↓' : ' ↑') : ''}
+              </span>
+            ))}
+          </div>
+          <div className="tbody" ref={parentRef} tabIndex={0}>
+            <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+              {virtualizer.getVirtualItems().map((vi) => {
+                const row = flatRows[vi.index]
+                return (
+                  <Row
+                    key={rowId(row)}
+                    row={row}
+                    top={vi.start}
+                    ssdName={ssdNames.get(row.node.ssdId) ?? ''}
+                    focused={focusKey === rowId(row)}
+                    isSelected={selected.has(rowId(row))}
+                    maxSize={maxSize}
+                  />
+                )
+              })}
+            </div>
+            {flatRows.length === 0 && (
+              <div className="empty">No folders match the current filters.</div>
+            )}
+          </div>
         </div>
-        {flatRows.length === 0 && (
-          <div className="empty">No folders match the current filters.</div>
-        )}
+        {boardPanel === 'sunburst' && <SunburstPanel />}
       </div>
     </div>
   )
