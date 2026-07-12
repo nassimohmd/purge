@@ -146,8 +146,11 @@ export default function Sunburst({
         <div
           className="sunburst-tip"
           style={{
-            left: Math.min(tip.x + 12, size - 140),
-            top: tip.y + 12,
+            // Clamp against the tooltip's own CSS max-width (220px) plus a
+            // margin, not a guessed content width — the mark-button row can
+            // make it wider than the plain info tooltip used to be.
+            left: Math.max(4, Math.min(tip.x + 12, size - 224)),
+            top: Math.max(4, Math.min(tip.y + 12, size - 96)),
           }}
         >
           <div className="tip-name">

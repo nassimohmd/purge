@@ -23,6 +23,13 @@
   --k-other-dim: #33373c;
   /* Age heat — warm-grey rgb triplet, used as rgba(var(--age-warm), a) */
   --age-warm: 138, 127, 114;
+  /* Capacity fill status ramp (green→amber→red), CVD-validated against
+     --bg-0. Interpolated in JS (CapacityBar) — kept here for reference and
+     any future flat use. Distinct hue from --del so "drive is full" reads
+     differently from "marked for deletion" even where they sit adjacent. */
+  --fill-low: #5f9e6a;
+  --fill-mid: #b8873a;
+  --fill-high: #c1523f;
   --mono: ui-monospace, 'SF Mono', Menlo, 'JetBrains Mono', 'IBM Plex Mono', Consolas, monospace;
 }
 
@@ -880,6 +887,7 @@ input[type='range'] {
 }
 .capacity-bar .seg.reclaim {
   background: var(--del-dim);
+  border-left: 2px solid var(--bg-0);
   border-right: 1px solid var(--del);
 }
 .manifest .capacity-bar {
