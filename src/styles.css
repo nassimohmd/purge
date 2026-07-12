@@ -483,6 +483,34 @@ input[type='range'] {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Mouse-clickable marking: hidden until hover/focus, occludes the trailing
+   kind/note cells rather than shifting the layout. */
+.row-actions {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 16px 0 24px;
+  background: linear-gradient(to right, transparent, var(--bg-1) 24px);
+  opacity: 0;
+  pointer-events: none;
+}
+.row:hover .row-actions,
+.row.focused .row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.row.focused .row-actions {
+  background: linear-gradient(to right, transparent, var(--bg-2) 24px);
+}
+.row-actions button {
+  padding: 2px 8px;
+  font-size: 11px;
+}
 .row .num {
   text-align: right;
   color: var(--tx-1);
@@ -772,6 +800,20 @@ input[type='range'] {
 .focus-bottom .keys b {
   color: var(--tx-0);
   font-weight: 400;
+}
+.focus-bottom .keys button {
+  margin-right: 16px;
+  padding: 0;
+  border: none;
+  font-size: 12px;
+  color: var(--tx-2);
+}
+.focus-bottom .keys button:hover:not(:disabled) {
+  color: var(--tx-1);
+  background: transparent;
+}
+.focus-bottom .keys button b {
+  color: var(--tx-0);
 }
 .focus-done {
   text-align: center;
