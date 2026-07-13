@@ -205,6 +205,65 @@ export async function exportSession(database: PurgeDB = db): Promise<Blob> {
   return new Blob(parts, { type: 'application/json' })
 }
 
+// ---------------------------------------------------------------------------
+// Shared-session snapshots — ssds+nodes only (no decisions, those live and
+// sync separately via the share API so multiple people can mark the same
+// published session without a full re-publish).
+// ---------------------------------------------------------------------------
+
+export interface Snapshot {
+  app: 'purge'
+  version: 2
+  ssds: SsdMeta[]
+  nodes: NodeRec[]
+}
+
+/** Same chunked-blob-parts approach as exportSession, minus decisions. */
+export async function exportSnapshot(database: PurgeDB = db): Promise<Blob> {
+  const ssds = await database.ssds.toArray()
+  const parts: string[] = [
+    `{"app":"purge","version":2,"ssds":${JSON.stringify(ssds)},"nodes":[`,
+  ]
+  let first = true
+  for (const ssd of ssds) {
+    const nodes = await database.nodes.where('ssdId').equals(ssd.id).toArray()
+    for (let i = 0; i < nodes.length; i += CHUNK) {
+      const chunk = nodes.slice(i, i + CHUNK).map((n) => JSON.stringify(n))
+      parts.push((first ? '' : ',') + chunk.join(','))
+      first = false
+    }
+  }
+  parts.push(']}')
+  return new Blob(parts, { type: 'application/json' })
+}
+
+/**
+ * Hydrate local IndexedDB from a fetched shared snapshot + its current
+ * decisions, so the existing lazy-file-loading machinery (getDirectFiles,
+ * getDescendantFiles) works unmodified for shared sessions too.
+ */
+export async function importSnapshot(
+  snapshot: Snapshot,
+  decisions: Decision[],
+  database: PurgeDB = db,
+): Promise<LoadedState> {
+  await database.transaction(
+    'rw',
+    [database.ssds, database.nodes, database.decisions],
+    async () => {
+      await database.ssds.clear()
+      await database.nodes.clear()
+      await database.decisions.clear()
+      await database.ssds.bulkPut(snapshot.ssds.map(normalizeSsd))
+      await bulkPutChunked(database.nodes, snapshot.nodes)
+      await database.decisions.bulkPut(
+        decisions.map((d) => ({ ...d, key: dkey(d.ssdId, d.path) })),
+      )
+    },
+  )
+  return loadAll(database)
+}
+
 export async function importSession(json: string, database: PurgeDB = db): Promise<LoadedState> {
   const data = JSON.parse(json) as SessionFile
   if (data.app !== 'purge' || !Array.isArray(data.ssds) || !Array.isArray(data.nodes)) {

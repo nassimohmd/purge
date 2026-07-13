@@ -147,6 +147,21 @@ input[type='range'] {
 }
 
 /* ---- top bar ---- */
+.share-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--line);
+  color: var(--tx-1);
+  font-size: 12px;
+  flex: none;
+}
+.share-banner button {
+  padding: 2px 8px;
+  font-size: 11px;
+}
 .topbar {
   display: flex;
   align-items: center;

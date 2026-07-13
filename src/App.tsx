@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useStore } from './state/store'
+import { parseShareId, shareUrl } from './lib/share'
 import ImportScreen from './components/ImportScreen'
 import FleetScreen from './components/FleetScreen'
 import TriageBoard from './components/TriageBoard'
@@ -18,13 +19,20 @@ export default function App() {
   const drillSsdId = useStore((s) => s.drillSsdId)
   const helpOpen = useStore((s) => s.helpOpen)
   const noteFor = useStore((s) => s.noteFor)
+  const shareId = useStore((s) => s.shareId)
+  const shareError = useStore((s) => s.shareError)
   const init = useStore((s) => s.init)
+  const initShared = useStore((s) => s.initShared)
   const setScreen = useStore((s) => s.setScreen)
   const setHelpOpen = useStore((s) => s.setHelpOpen)
 
   useEffect(() => {
-    void init()
-  }, [init])
+    const id = parseShareId()
+    if (id) void initShared(id)
+    else void init()
+    // Boot flow runs once; init/initShared identities are stable from zustand.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Global keys that work on every screen.
   useEffect(() => {
@@ -57,8 +65,30 @@ export default function App() {
     return <div className="app" />
   }
 
+  if (shareError) {
+    return (
+      <div className="app">
+        <div className="empty">
+          <div>Couldn't load this shared session.</div>
+          <div>{shareError}</div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="app">
+      {shareId && (
+        <div className="share-banner">
+          Shared session — anyone with this link can view and mark it.
+          <button
+            className="ghost"
+            onClick={() => void navigator.clipboard.writeText(shareUrl(shareId))}
+          >
+            copy link
+          </button>
+        </div>
+      )}
       <div className="topbar">
         <span className="brand">PURGE</span>
         <nav>

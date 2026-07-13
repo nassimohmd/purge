@@ -5,6 +5,7 @@ import { effectiveCapacity } from '../lib/types'
 import type { WorkerRequest, WorkerResponse } from '../lib/parser/worker'
 import { db, exportSession, importSession } from '../lib/db'
 import { fmtDate, humanBytes, parseHumanSize, todayStamp } from '../lib/format'
+import { shareUrl } from '../lib/share'
 
 interface QueueItem {
   id: number
@@ -259,6 +260,8 @@ export default function ImportScreen() {
         </div>
       </section>
 
+      <PublishSection />
+
       {confirm && (
         <div className="overlay">
           <div className="panel">
@@ -357,6 +360,58 @@ export function CapacityCell({ ssd }: { ssd: SsdMeta }) {
       {capacity !== null ? humanBytes(capacity) : 'set…'}
       {ssd.userCapacityBytes !== null && <span className="edited"> ·edited</span>}
     </button>
+  )
+}
+
+/**
+ * Publish the current session to a hosted link — anyone who opens it sees
+ * the fleet/board/sunburst and can mark decisions without importing
+ * anything. No password: the unguessable link is the only gate.
+ */
+function PublishSection() {
+  const ssds = useStore((s) => s.ssds)
+  const shareId = useStore((s) => s.shareId)
+  const publishing = useStore((s) => s.publishing)
+  const shareError = useStore((s) => s.shareError)
+  const publish = useStore((s) => s.publish)
+  const [copied, setCopied] = useState(false)
+
+  if (ssds.length === 0) return null
+
+  const doPublish = () => {
+    void publish()
+      .then((id) => navigator.clipboard.writeText(shareUrl(id)))
+      .then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2500)
+      })
+      .catch(() => {})
+  }
+
+  return (
+    <section>
+      <h3>Share a hosted link</h3>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button className="primary" disabled={publishing} onClick={doPublish}>
+          {publishing ? 'publishing…' : shareId ? 're-publish' : 'publish for sharing'}
+        </button>
+        {shareId && (
+          <>
+            <code style={{ fontSize: 12, color: 'var(--tx-1)' }}>{shareUrl(shareId)}</code>
+            {copied && <span style={{ color: 'var(--tx-2)', fontSize: 12 }}>copied</span>}
+          </>
+        )}
+      </div>
+      {shareError && (
+        <div style={{ color: 'var(--del)', fontSize: 12, marginTop: 4 }}>{shareError}</div>
+      )}
+      <span style={{ color: 'var(--tx-2)', fontSize: 12 }}>
+        Uploads the current catalog to a hosted link — anyone who opens it can view and mark
+        decisions without importing anything, no login. Re-publish after new imports to update
+        it; marks made on the link sync back live. No password: treat the link like the data
+        itself.
+      </span>
+    </section>
   )
 }
 
