@@ -1,8 +1,8 @@
 /// <reference lib="dom" />
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { head, list } from '@vercel/blob'
-import type { Decision } from '../../src/lib/types'
-import { decisionsPrefix, isValidId, snapshotPath } from '../_lib'
+import type { Decision } from '../../src/lib/types.js'
+import { decisionsPrefix, isValidId, snapshotPath } from '../_lib.js'
 
 /**
  * GET /api/shares/:id — returns a small pointer + the current decisions, not

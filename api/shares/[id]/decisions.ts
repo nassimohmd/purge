@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { del, put } from '@vercel/blob'
-import { dkey, type Decision } from '../../../src/lib/types'
-import { decisionPath, isValidId } from '../../_lib'
+import { dkey, type Decision } from '../../../src/lib/types.js'
+import { decisionPath, isValidId } from '../../_lib.js'
 
 /**
  * PUT/DELETE /api/shares/:id/decisions — upsert or remove one Decision.

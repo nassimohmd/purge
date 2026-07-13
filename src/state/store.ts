@@ -60,7 +60,10 @@ interface PurgeState {
   /** Non-null while viewing/editing a published shared session (`/s/<id>`). */
   shareId: string | null
   publishing: boolean
+  /** Set when loading a `/s/<id>` link fails — drives a full-page takeover. */
   shareError: string | null
+  /** Set when publish()/re-publish fails — shown inline near the button. */
+  publishError: string | null
 
   init: () => Promise<void>
   /** Boot into a shared session instead of the local one — see `shareId`. */
@@ -132,6 +135,7 @@ export const useStore = create<PurgeState>((set, get) => ({
   shareId: null,
   publishing: false,
   shareError: null,
+  publishError: null,
 
   init: async () => {
     const state = await dbi.loadAll()
@@ -159,14 +163,14 @@ export const useStore = create<PurgeState>((set, get) => ({
 
   publish: async () => {
     const id = get().shareId ?? shareLib.randomShareId()
-    set({ publishing: true, shareError: null })
+    set({ publishing: true, publishError: null })
     try {
       await shareLib.publishShare(id)
       window.history.pushState(null, '', `/s/${id}`)
       set({ shareId: id, publishing: false })
       return id
     } catch (err) {
-      set({ publishing: false, shareError: (err as Error).message })
+      set({ publishing: false, publishError: (err as Error).message })
       throw err
     }
   },
