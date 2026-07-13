@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
-import { isValidId } from '../_lib.js'
+import { blobToken, isValidId } from '../_lib.js'
 
 /**
  * Token-exchange route for direct browser -> Blob uploads of the (potentially
@@ -14,6 +14,7 @@ export async function POST(request: Request): Promise<Response> {
     const jsonResponse = await handleUpload({
       body,
       request,
+      token: blobToken(),
       onBeforeGenerateToken: async (pathname) => {
         const m = pathname.match(/^shares\/([^/]+)\/snapshot\.json$/)
         if (!m || !isValidId(m[1])) {

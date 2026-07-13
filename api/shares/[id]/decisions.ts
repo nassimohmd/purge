@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { del, put } from '@vercel/blob'
 import { dkey, type Decision } from '../../../src/lib/types.js'
-import { decisionPath, isValidId } from '../../_lib.js'
+import { blobToken, decisionPath, isValidId } from '../../_lib.js'
 
 /**
  * PUT/DELETE /api/shares/:id/decisions — upsert or remove one Decision.
@@ -36,6 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       contentType: 'application/json',
       addRandomSuffix: false,
       allowOverwrite: true,
+      token: blobToken(),
     })
     res.status(204).end()
     return
@@ -47,7 +48,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(400).json({ error: 'invalid key' })
       return
     }
-    await del(decisionPath(id, dkey(body.ssdId, body.path))).catch(() => {})
+    await del(decisionPath(id, dkey(body.ssdId, body.path)), { token: blobToken() }).catch(
+      () => {},
+    )
     res.status(204).end()
     return
   }
