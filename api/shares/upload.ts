@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
-import { isValidId } from '../_lib'
+import { isValidId } from '../_lib.js'
 
 /**
  * Token-exchange route for direct browser -> Blob uploads of the (potentially

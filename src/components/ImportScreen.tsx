@@ -372,7 +372,7 @@ function PublishSection() {
   const ssds = useStore((s) => s.ssds)
   const shareId = useStore((s) => s.shareId)
   const publishing = useStore((s) => s.publishing)
-  const shareError = useStore((s) => s.shareError)
+  const publishError = useStore((s) => s.publishError)
   const publish = useStore((s) => s.publish)
   const [copied, setCopied] = useState(false)
 
@@ -402,8 +402,8 @@ function PublishSection() {
           </>
         )}
       </div>
-      {shareError && (
-        <div style={{ color: 'var(--del)', fontSize: 12, marginTop: 4 }}>{shareError}</div>
+      {publishError && (
+        <div style={{ color: 'var(--del)', fontSize: 12, marginTop: 4 }}>{publishError}</div>
       )}
       <span style={{ color: 'var(--tx-2)', fontSize: 12 }}>
         Uploads the current catalog to a hosted link — anyone who opens it can view and mark
