@@ -4,12 +4,15 @@ import { parseNeoFinderExport } from '../src/lib/parser/parse'
 import {
   PurgeDB,
   exportSession,
+  exportSnapshot,
   getDescendantFiles,
   getDirectFiles,
   importSession,
+  importSnapshot,
   loadAll,
   saveImport,
   setSsdCapacity,
+  type Snapshot,
 } from '../src/lib/db'
 import { dkey } from '../src/lib/types'
 import { assemble, fileRow, folderRow, sampleSsd1, toBuffer } from './fixture'
@@ -162,5 +165,49 @@ describe('capacity persistence', () => {
     const state = await importSession(JSON.stringify(data), db2)
     expect(state.ssds[0].capacityBytes).toBeNull()
     expect(state.ssds[0].userCapacityBytes).toBeNull()
+  })
+})
+
+describe('shared-session snapshots', () => {
+  it('exportSnapshot omits decisions; importSnapshot restores ssds+nodes and takes decisions separately', async () => {
+    const db1 = freshDb()
+    const parsed = parseNeoFinderExport(toBuffer(sampleSsd1()), 'SSD_1.txt')
+    await saveImport(parsed, db1)
+    await db1.decisions.put({
+      key: dkey(parsed.ssd.id, 'SSD 1:JA Golf 25'),
+      ssdId: parsed.ssd.id,
+      path: 'SSD 1:JA Golf 25',
+      state: 'keep',
+      note: '',
+      decidedAt: 1,
+    })
+
+    const snapshot = JSON.parse(await (await exportSnapshot(db1)).text()) as Snapshot
+    expect(snapshot.app).toBe('purge')
+    expect('decisions' in snapshot).toBe(false)
+    expect(snapshot.ssds).toHaveLength(1)
+    expect(snapshot.nodes.length).toBe(await db1.nodes.count())
+
+    // A visitor's own browser, hydrated from the fetched snapshot + separately-fetched decisions.
+    const db2 = freshDb()
+    const decisions = [
+      {
+        key: dkey(parsed.ssd.id, 'SSD 1:Hypedrop Logos'),
+        ssdId: parsed.ssd.id,
+        path: 'SSD 1:Hypedrop Logos',
+        state: 'delete' as const,
+        note: 'shared mark',
+        decidedAt: 2,
+      },
+    ]
+    const state = await importSnapshot(snapshot, decisions, db2)
+    expect(state.ssds[0].name).toBe('SSD 1')
+    expect(state.foldersBySsd[parsed.ssd.id].some((f) => f.path === 'SSD 1:Hypedrop Logos')).toBe(
+      true,
+    )
+    expect(state.decisions[dkey(parsed.ssd.id, 'SSD 1:Hypedrop Logos')]?.note).toBe('shared mark')
+    // The original db1-only 'keep' decision must NOT leak into db2 — decisions
+    // are share-specific, not part of the snapshot.
+    expect(state.decisions[dkey(parsed.ssd.id, 'SSD 1:JA Golf 25')]).toBeUndefined()
   })
 })

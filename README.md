@@ -6,6 +6,10 @@ manager: **it never touches real files.** Its output is a reviewed deletion mani
 SSD (CSV, plus an optional guarded shell script) that you execute manually when each
 drive is mounted.
 
+Importing is always local-first — your NeoFinder exports never leave the browser unless
+you explicitly publish. Publishing is optional: it uploads the catalog (not the actual
+files) to a hosted link so it can be viewed and triaged without anyone else re-importing.
+
 ## How it works
 
 1. **Import** — drop 1–30 NeoFinder tabbed-text exports (`File → Export as Text`).
@@ -40,17 +44,33 @@ drive is mounted.
 Session backup: export/import the entire state (all SSDs + decisions) as one JSON file
 from the import screen.
 
+### Sharing a hosted link
+
+"Share a hosted link" on the import screen uploads the current catalog (SSDs + folder/file
+metadata, never actual files) to Vercel Blob storage and gives you a `/s/<id>` link.
+Anyone who opens it sees the fleet, triage board, and sunbursts immediately — no import
+step — and can mark `delete`/`keep`/`review` themselves; those marks sync back live.
+Re-publish after new imports to push updated catalog data to the same link.
+
+There's no login and no password: the link itself is the only access control, so treat it
+like the data it represents. Re-publishing and marking are both possible for anyone who has
+the link, not just the person who first published it.
+
 ## Development
 
 ```bash
 pnpm install
 pnpm dev        # Vite dev server
-pnpm test       # parser / resolution / manifest / persistence tests (vitest)
+pnpm test       # parser / resolution / manifest / persistence / share tests (vitest)
+pnpm typecheck  # app + api function typecheck
 pnpm build      # typecheck + production build
 ```
 
 Stack: Vite + React + TypeScript, Dexie (IndexedDB), zustand, `@tanstack/react-virtual`.
-No backend, no component library — everything is local to the browser.
+No component library. Everything is local-first — import/triage/manifest never touch a
+server. Sharing is the one opt-in exception: `api/` holds a handful of Vercel Functions
+(`@vercel/blob`) that store/serve published snapshots and decisions; see `vercel.json` for
+the SPA routing rewrite that publishing needs.
 
 This app lives in `purge/` as an independent pnpm workspace (own lockfile); it does not
 share dependencies with the SSD Vault app at the repo root.

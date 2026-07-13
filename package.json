@@ -8,18 +8,21 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p api/tsconfig.json"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.0",
+    "@vercel/blob": "^2.6.1",
     "dexie": "^4.0.11",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@types/node": "^26.1.1",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "@vercel/node": "^5.8.23",
     "@vitejs/plugin-react": "^5.0.0",
     "fake-indexeddb": "^6.0.0",
     "typescript": "^5.8.0",

@@ -9,6 +9,7 @@ import {
   type SortCol,
 } from '../lib/board'
 import * as dbi from '../lib/db'
+import * as shareLib from '../lib/share'
 
 export type Screen = 'import' | 'fleet' | 'board' | 'manifest'
 
@@ -56,7 +57,16 @@ interface PurgeState {
   toast: ToastState | null
   sessionMarkedBytes: number
 
+  /** Non-null while viewing/editing a published shared session (`/s/<id>`). */
+  shareId: string | null
+  publishing: boolean
+  shareError: string | null
+
   init: () => Promise<void>
+  /** Boot into a shared session instead of the local one — see `shareId`. */
+  initShared: (id: string) => Promise<void>
+  /** Publish (or re-publish) the current local session; returns its share id. */
+  publish: () => Promise<string>
   reloadFromDb: () => Promise<void>
   applyImport: (result: ParseResult) => Promise<dbi.RematchReport>
   removeSsd: (ssdId: string) => Promise<void>
@@ -91,6 +101,14 @@ export const nodeKey = (n: NodeRec): string => dkey(n.ssdId, n.path)
 
 const UNDO_LIMIT = 50
 
+/** Push a decision write/removal through to shared storage when in shared mode. */
+const syncPut = (shareId: string | null, d: Decision) => {
+  if (shareId) shareLib.pushDecision(shareId, d)
+}
+const syncRemove = (shareId: string | null, ssdId: string, path: string) => {
+  if (shareId) shareLib.pushDecisionRemoval(shareId, ssdId, path)
+}
+
 export const useStore = create<PurgeState>((set, get) => ({
   loaded: false,
   screen: 'import',
@@ -111,6 +129,9 @@ export const useStore = create<PurgeState>((set, get) => ({
   undoStack: [],
   toast: null,
   sessionMarkedBytes: 0,
+  shareId: null,
+  publishing: false,
+  shareError: null,
 
   init: async () => {
     const state = await dbi.loadAll()
@@ -119,6 +140,35 @@ export const useStore = create<PurgeState>((set, get) => ({
       loaded: true,
       screen: state.ssds.length > 0 ? 'fleet' : 'import',
     })
+  },
+
+  initShared: async (id) => {
+    set({ shareId: id })
+    try {
+      const { snapshot, decisions } = await shareLib.fetchShare(id)
+      const state = await dbi.importSnapshot(snapshot, decisions)
+      set({
+        ...state,
+        loaded: true,
+        screen: state.ssds.length > 0 ? 'fleet' : 'import',
+      })
+    } catch (err) {
+      set({ loaded: true, screen: 'import', shareError: (err as Error).message })
+    }
+  },
+
+  publish: async () => {
+    const id = get().shareId ?? shareLib.randomShareId()
+    set({ publishing: true, shareError: null })
+    try {
+      await shareLib.publishShare(id)
+      window.history.pushState(null, '', `/s/${id}`)
+      set({ shareId: id, publishing: false })
+      return id
+    } catch (err) {
+      set({ publishing: false, shareError: (err as Error).message })
+      throw err
+    }
   },
 
   reloadFromDb: async () => {
@@ -148,7 +198,7 @@ export const useStore = create<PurgeState>((set, get) => ({
 
   mark: (nodes, state) => {
     if (nodes.length === 0) return
-    const { decisions, undoStack, sessionMarkedBytes } = get()
+    const { decisions, undoStack, sessionMarkedBytes, shareId } = get()
     const next = { ...decisions }
     const steps: UndoStep[] = []
     let markedDelta = 0
@@ -163,9 +213,11 @@ export const useStore = create<PurgeState>((set, get) => ({
           const d: Decision = { ...prev, state: 'undecided', decidedAt: now }
           next[key] = d
           void dbi.putDecision(d)
+          syncPut(shareId, d)
         } else {
           delete next[key]
           void dbi.removeDecision(key)
+          syncRemove(shareId, n.ssdId, n.path)
         }
       } else {
         const d: Decision = {
@@ -178,6 +230,7 @@ export const useStore = create<PurgeState>((set, get) => ({
         }
         next[key] = d
         void dbi.putDecision(d)
+        syncPut(shareId, d)
       }
     }
     const verb = state === null || state === 'undecided' ? 'cleared' : `marked ${state}`
@@ -195,7 +248,7 @@ export const useStore = create<PurgeState>((set, get) => ({
 
   setNote: (nodes, note) => {
     if (nodes.length === 0) return
-    const { decisions } = get()
+    const { decisions, shareId } = get()
     const next = { ...decisions }
     const now = Date.now()
     for (const n of nodes) {
@@ -205,6 +258,7 @@ export const useStore = create<PurgeState>((set, get) => ({
       if (!note && prev && prev.state === 'undecided') {
         delete next[key]
         void dbi.removeDecision(key)
+        syncRemove(shareId, n.ssdId, n.path)
         continue
       }
       const d: Decision = prev
@@ -212,12 +266,13 @@ export const useStore = create<PurgeState>((set, get) => ({
         : { key, ssdId: n.ssdId, path: n.path, state: 'undecided', note, decidedAt: now }
       next[key] = d
       void dbi.putDecision(d)
+      syncPut(shareId, d)
     }
     set({ decisions: next, noteFor: null })
   },
 
   undo: () => {
-    const { undoStack, decisions } = get()
+    const { undoStack, decisions, shareId } = get()
     const entry = undoStack[undoStack.length - 1]
     if (!entry) return
     const next = { ...decisions }
@@ -225,9 +280,12 @@ export const useStore = create<PurgeState>((set, get) => ({
       if (step.prev) {
         next[step.key] = step.prev
         void dbi.putDecision(step.prev)
+        syncPut(shareId, step.prev)
       } else {
+        const removed = next[step.key]
         delete next[step.key]
         void dbi.removeDecision(step.key)
+        if (removed) syncRemove(shareId, removed.ssdId, removed.path)
       }
     }
     set({
