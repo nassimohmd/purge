@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client'
 import { isValidId } from '../_lib'
 

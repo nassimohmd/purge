@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { head, list } from '@vercel/blob'
 import type { Decision } from '../../src/lib/types'
