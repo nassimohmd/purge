@@ -33,6 +33,7 @@ export async function POST(request: Request): Promise<Response> {
     })
     return Response.json(jsonResponse)
   } catch (error) {
+    console.error('POST /api/shares/upload failed:', error)
     return Response.json({ error: (error as Error).message }, { status: 400 })
   }
 }
